@@ -48,7 +48,7 @@ pub fn build(b: *std.Build) void {
 
     const unit_with_runner_tests = b.addTest(.{
         .name = "Unit tests under ztest runner",
-        .root_source_file = b.path("tests/root.zig"),
+        .root_source_file = b.path("tests/tests.zig"),
         .target = target,
         .optimize = optimize,
         .test_runner = ztest_runner_mod.root_source_file,
@@ -59,7 +59,7 @@ pub fn build(b: *std.Build) void {
 
     const unit_without_runner_tests = b.addTest(.{
         .name = "Unit tests under default runner",
-        .root_source_file = b.path("tests/root.zig"),
+        .root_source_file = b.path("tests/tests.zig"),
         .target = target,
         .optimize = optimize,
     });

@@ -1,4 +1,4 @@
-const readme = @import("readme/root.zig");
+const readme = @import("readme/tests.zig");
 
 test {
     const testing = @import("std").testing;
