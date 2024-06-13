@@ -25,12 +25,17 @@ test "multiple expectations" {
 }
 ```
 
-## Extensibility
+## Features
+
+### Extensibility
 
 One of the core features of the library is to be able to easily extend exceptions.
 
-You must implement the SomeException(type) interface:
-`pub fn expect(self: *const @This(), expec: *Expectation(T)) !void {}`
+You must implement `SomeException(type)` by providing a function
+
+```zig
+pub fn expect(self: *const @This(), expec: *Expectation(T)) !void {}
+```
 
 ```zig
 const ztest = @import("ztest");
@@ -47,9 +52,9 @@ pub fn Extension(comptime T: type) type {
         value: T,
 
         // Useful initialization function
-        // This is inline because we're returning `&Self{}`. If we were to not
-        // inline this function we would have to first create an instance and then
-        // call bind or allocate to the heap, which is not ideal
+        // This is inline because we're returning `&Self{}` (a pointer to the stack).
+        // If we were to not inline this function we would have to first create an
+        // instance and then call bind or allocate to the heap, which is not ideal
         pub inline fn bind(val: T) SomeException(T) {
             return SomeException(T).init(&Self{ .value = val });
         }
