@@ -101,35 +101,35 @@ pub fn ExpectationState(comptime T: type) type {
         }
 
         pub fn has(self: *ExpectationState(T), arbitraryExpect: SomeExpectation(T)) !void {
-            try arbitraryExpect.expect(self);
+            try arbitraryExpect.expectation(self);
         }
 
         pub fn isEqualTo(self: *ExpectationState(T), expected: T) !void {
-            exp_fn.isEqualTo(expected).expect(self) catch |err| {
+            exp_fn.isEqualTo(expected).expectation(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
         pub fn isNotEqualTo(self: *ExpectationState(T), expected: T) !void {
-            exp_meta_fn.not(T, exp_fn.isEqualTo(expected)).expect(self) catch |err| {
+            exp_meta_fn.not(T, exp_fn.isEqualTo(expected)).expectation(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
         pub fn isError(self: *ExpectationState(T), expected: T) !void {
-            exp_fn.isError(expected).expect(self) catch |err| {
+            exp_fn.isError(expected).expectation(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
         pub fn isNotError(self: *ExpectationState(T), expected: T) !void {
-            exp_meta_fn.not(T, exp_fn.isError(expected)).expect(self) catch |err| {
+            exp_meta_fn.not(T, exp_fn.isError(expected)).expectation(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
         pub fn isValue(self: *ExpectationState(T)) !void {
-            exp_fn.isValue(T).expect(self) catch |err| {
+            exp_fn.isValue(T).expectation(self) catch |err| {
                 return self.handleError(err);
             };
         }
@@ -153,8 +153,8 @@ test expect {
 pub fn expectAll(val: anytype, expectations: []const SomeExpectation(@TypeOf(val))) !void {
     const state = expect(val);
 
-    for (expectations) |expectation| {
-        expectation.expect(state) catch |err| {
+    for (expectations) |some_expectation| {
+        some_expectation.expectation(state) catch |err| {
             return state.handleError(err);
         };
     }

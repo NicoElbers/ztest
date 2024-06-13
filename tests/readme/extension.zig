@@ -20,8 +20,8 @@ pub fn Extension(comptime T: type) type {
         }
 
         // We get a pointer to Expectation(T).
-        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
-            if (expec.val == self.value) return;
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
+            if (state.val == self.value) return;
 
             return error.SomeError;
         }

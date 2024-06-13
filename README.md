@@ -34,7 +34,7 @@ One of the core features of the library is to be able to easily extend exception
 You must implement `SomeException(type)` by providing a function
 
 ```zig
-pub fn expect(self: *const @This(), expec: *ExpectationState(T)) !void {}
+pub fn expectation(self: *const @This(), state: *ExpectationState(T)) !void {}
 ```
 
 ```zig
@@ -60,8 +60,8 @@ pub fn Extension(comptime T: type) type {
         }
 
         // We get a pointer to Expectation(T).
-        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
-            if (expec.val == self.value) return;
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
+            if (state.val == self.value) return;
 
             return error.SomeError;
         }

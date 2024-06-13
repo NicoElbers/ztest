@@ -70,12 +70,12 @@ pub fn SomeExpectation(comptime T: type) type {
 
             const Child = ptr_info.Pointer.child;
 
-            if (!std.meta.hasFn(Child, "expect")) @compileError("Type " ++ @typeName(Child) ++ " does not have an expect function");
+            if (!std.meta.hasFn(Child, "expectation")) @compileError("Type " ++ @typeName(Child) ++ " does not have an expect function");
 
             const wrapper = struct {
-                pub fn inner(pointer: SelfPtr, expectation: *ExpectationState(T)) anyerror!void {
+                pub fn inner(pointer: SelfPtr, state: *ExpectationState(T)) anyerror!void {
                     const self: P = @ptrCast(@alignCast(pointer));
-                    return Child.expect(self, expectation);
+                    return Child.expectation(self, state);
                 }
             };
 
@@ -85,8 +85,8 @@ pub fn SomeExpectation(comptime T: type) type {
             };
         }
 
-        pub fn expect(self: SomeExpectation(T), expectation: *ExpectationState(T)) !void {
-            return self.expectFn(self.ptr, expectation);
+        pub fn expectation(self: SomeExpectation(T), state: *ExpectationState(T)) !void {
+            return self.expectFn(self.ptr, state);
         }
     };
 }
@@ -118,17 +118,17 @@ pub fn IsError(comptime T: type) type {
             return SomeExpectation(T).init(self);
         }
 
-        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
-            expec.expected = self.err;
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
+            state.expected = self.err;
 
             switch (@typeInfo(T)) {
                 .ErrorUnion => {
-                    _ = expec.val catch |err| {
+                    _ = state.val catch |err| {
                         if (err == self.err) return;
                     };
                 },
                 .ErrorSet => {
-                    if (expec.val == self.err) return;
+                    if (state.val == self.err) return;
                 },
 
                 else => unreachable,
@@ -158,15 +158,15 @@ pub fn IsValue(comptime T: type) type {
             return SomeExpectation(T).init(self);
         }
 
-        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
             _ = self;
             switch (@typeInfo(T)) {
                 .ErrorSet => {},
                 .ErrorUnion => {
-                    if (!std.meta.isError(expec.val)) return;
+                    if (!std.meta.isError(state.val)) return;
                 },
                 .Optional => {
-                    if (expec.val) |_| {
+                    if (state.val) |_| {
                         return;
                     }
                 },
@@ -235,11 +235,11 @@ pub fn IsEqualTo(comptime T: type) type {
             return SomeExpectation(T).init(self);
         }
 
-        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
-            expec.expected = self.val;
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
+            state.expected = self.val;
 
             // TODO: See if I can make std.meta.eql better/ more explicit
-            if (std.meta.eql(self.val, expec.val)) return;
+            if (std.meta.eql(self.val, state.val)) return;
 
             return ExpectationError.NotEqual;
         }
@@ -292,10 +292,8 @@ pub fn IsBetween(comptime T: type) type {
             });
         }
 
-        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
-            const val: T = expec.val;
-
-            // TODO: set expec.expected here. AKA redo the system :')
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
+            const val: T = state.val;
 
             if (self.config.include_lower) {
                 if (val < self.lower) return ExpectationError.OutOfBounds;
@@ -333,7 +331,7 @@ pub fn IsLessThan(comptime T: type) type {
             });
         }
 
-        pub fn expect(self: *const Self, state: *ExpectationState(T)) !void {
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
             const val = state.val;
 
             if (self.config.include_upper) {
@@ -366,7 +364,7 @@ pub fn IsMoreThan(comptime T: type) type {
             });
         }
 
-        pub fn expect(self: *const Self, state: *ExpectationState(T)) !void {
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
             const val = state.val;
 
             if (self.config.include_lower) {
@@ -402,7 +400,7 @@ pub fn Contains(comptime T: type) type {
             });
         }
 
-        pub fn expect(self: *const Self, state: *ExpectationState(T)) !void {
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
             for (state.val) |item| {
                 if (std.meta.eql(item, self.item)) return;
             }
@@ -441,7 +439,7 @@ pub fn ContainsAll(comptime T: type) type {
             });
         }
 
-        pub fn expect(self: *const Self, state: *ExpectationState(T)) !void {
+        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
             for (state.val) |item| {
                 if (std.meta.eql(item, self.item)) return;
                 @compileError("AAAAAAA");
