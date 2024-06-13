@@ -1,14 +1,11 @@
 const std = @import("std");
-const io = std.io;
 const builtin = @import("builtin");
 const native_os = builtin.os.tag;
 
-const utils = @import("utils");
-const colors = utils.colors;
+const io = std.io;
+const colors = io.tty;
 
-pub const State = struct {
-    ztest_runner: bool = false,
-};
+const File = std.fs.File;
 
 pub fn main() !void {
     std.testing.log_level = .warn;
@@ -18,18 +15,20 @@ pub fn main() !void {
     try runTests(stdout, builtin.test_functions);
 }
 
-pub fn runTests(writer: anytype, tests: []const std.builtin.TestFn) !void {
+pub fn runTests(file: File, tests: []const std.builtin.TestFn) !void {
+    const config = colors.detectConfig(file);
+    const writer = file.writer();
+
     for (tests) |t| {
         try writer.writeAll(t.name);
         t.func() catch {
-            // With this line things break, without things are find
-            try colors.setColor(writer, .red);
+            try config.setColor(writer, .red);
             try writer.writeAll(" not passed\n");
-            try colors.setColor(writer, .reset);
+            try config.setColor(writer, .reset);
             continue;
         };
-        try colors.setColor(writer, .bright_green);
+        try config.setColor(writer, .bright_green);
         try writer.writeAll(" passed\n");
-        try colors.setColor(writer, .reset);
+        try config.setColor(writer, .reset);
     }
 }

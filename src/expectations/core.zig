@@ -1,9 +1,9 @@
 const std = @import("std");
 const meta = std.meta;
+const colors = std.io.tty;
 
 const ztest = @import("../ztest.zig");
 const runner = @import("ztest_runner");
-const colors = @import("utils").colors;
 
 const exp_fn = @import("functions.zig");
 const exp_meta_fn = @import("meta_functions.zig");
@@ -43,7 +43,10 @@ pub fn ExpectationState(comptime T: type) type {
 
         fn handleError(self: *ExpectationState(T), err: anyerror) anyerror {
             self.err = err;
-            try colors.setColor(std.io.getStdErr(), .dim);
+
+            const config = colors.detectConfig(self.output);
+
+            try config.setColor(std.io.getStdErr(), .dim);
             const err_msg = try std.fmt.allocPrint(
                 self.alloc,
                 " Expectation failed due to: {s}",
@@ -63,7 +66,7 @@ pub fn ExpectationState(comptime T: type) type {
                 try trace.format("", .{}, std.io.getStdOut().writer());
             }
 
-            try colors.setColor(std.io.getStdErr(), .reset);
+            try config.setColor(std.io.getStdErr(), .reset);
 
             return ExpectationError.Failed;
         }
