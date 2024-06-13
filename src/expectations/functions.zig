@@ -70,7 +70,18 @@ pub fn SomeExpectation(comptime T: type) type {
 
             const Child = ptr_info.Pointer.child;
 
-            if (!std.meta.hasFn(Child, "expectation")) @compileError("Type " ++ @typeName(Child) ++ " does not have an expect function");
+            if (!std.meta.hasFn(Child, "expectation"))
+                @compileError("Type " ++ @typeName(Child) ++ " does not have an expect function");
+
+            const ArgsT: type = @TypeOf(@field(Child, "expectation"));
+            const args = std.meta.ArgsTuple(ArgsT);
+            const args_tuple = @typeInfo(args).Struct;
+            if (args_tuple.fields.len != 2)
+                @compileError("'expect' function in type " ++ @typeName(Child) ++ " should have 2 parameters");
+            if (args_tuple.fields[0].type != *const Child)
+                @compileError("'expect' function should have '*const " ++ @typeName(Child) ++ "' as it's first parameter");
+            if (args_tuple.fields[1].type != *ExpectationState(T))
+                @compileError("'expect' function should have '*" ++ @typeName(ExpectationState(T)) ++ "' as it's second parameter");
 
             const wrapper = struct {
                 pub fn inner(pointer: SelfPtr, state: *ExpectationState(T)) anyerror!void {
