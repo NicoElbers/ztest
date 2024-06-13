@@ -8,6 +8,8 @@ const runner = @import("ztest_runner");
 const exp_fn = @import("functions.zig");
 const exp_meta_fn = @import("meta_functions.zig");
 
+const File = std.fs.File;
+
 const SomeExpectation = exp_fn.SomeExpectation;
 const Allocator = std.mem.Allocator;
 
@@ -19,6 +21,7 @@ pub const ExpectationError = error{
     UnexpectedError,
     UnexpectedValue,
     OutOfBounds,
+    ValueNotFound,
 };
 
 pub fn ExpectationState(comptime T: type) type {
@@ -32,6 +35,8 @@ pub fn ExpectationState(comptime T: type) type {
         err: ?anyerror = null,
 
         alloc: Allocator = std.testing.allocator,
+
+        output: File = std.io.getStdErr(),
 
         fn negative(self: *ExpectationState(T)) []const u8 {
             if (self.negative_expectation) {
@@ -62,6 +67,7 @@ pub fn ExpectationState(comptime T: type) type {
                 );
                 std.debug.print("{s}", .{instead_msg});
             } else {
+                // HACK: I need to remove this at some point
                 const trace = @errorReturnTrace().?;
                 try trace.format("", .{}, std.io.getStdOut().writer());
             }
@@ -69,6 +75,13 @@ pub fn ExpectationState(comptime T: type) type {
             try config.setColor(std.io.getStdErr(), .reset);
 
             return ExpectationError.Failed;
+        }
+
+        fn makeErrorMessage(self: *ExpectationState(T)) []const u8 {
+            std.debug.assert(self.err != null);
+
+            const err = self.err.?;
+            _ = err;
         }
 
         pub fn inRuntime(self: *ExpectationState(T)) *ExpectationState(T) {
@@ -138,11 +151,11 @@ test expect {
 }
 
 pub fn expectAll(val: anytype, expectations: []const SomeExpectation(@TypeOf(val))) !void {
-    const expecta = expect(val);
+    const state = expect(val);
 
-    for (expectations) |expec| {
-        expec.expect(expecta) catch |err| {
-            return expecta.handleError(err);
+    for (expectations) |expectation| {
+        expectation.expect(state) catch |err| {
+            return state.handleError(err);
         };
     }
 }
