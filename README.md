@@ -34,13 +34,13 @@ One of the core features of the library is to be able to easily extend exception
 You must implement `SomeException(type)` by providing a function
 
 ```zig
-pub fn expect(self: *const @This(), expec: *Expectation(T)) !void {}
+pub fn expect(self: *const @This(), expec: *ExpectationState(T)) !void {}
 ```
 
 ```zig
 const ztest = @import("ztest");
 
-const Expectation = ztest.Expectation;
+const ExpectationState = ztest.ExpectationState;
 const SomeException = ztest.SomeExpectation;
 
 const expect = ztest.expect;
@@ -52,15 +52,15 @@ pub fn Extension(comptime T: type) type {
         value: T,
 
         // Useful initialization function
-        // This is inline because we're returning `&Self{}` (a pointer to the stack).
-        // If we were to not inline this function we would have to first create an
-        // instance and then call bind or allocate to the heap, which is not ideal
+        // This is inline because we're returning `&Self{}`. If we were to not
+        // inline this function we would have to first create an instance and then
+        // call bind or allocate to the heap, which is not ideal
         pub inline fn bind(val: T) SomeException(T) {
             return SomeException(T).init(&Self{ .value = val });
         }
 
         // We get a pointer to Expectation(T).
-        pub fn expect(self: *const Self, expec: *Expectation(T)) !void {
+        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
             if (expec.val == self.value) return;
 
             return error.SomeError;

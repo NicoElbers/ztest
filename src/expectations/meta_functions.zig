@@ -3,7 +3,7 @@ const std = @import("std");
 const exp = @import("core.zig");
 const exp_fn = @import("functions.zig");
 
-const Expectation = exp.Expectation;
+const Expectation = exp.ExpectationState;
 const ExpectationError = exp.ExpectationError;
 const SomeExpectation = exp_fn.SomeExpectation;
 
@@ -20,7 +20,7 @@ fn isExpectationError(err: anyerror) bool {
 pub inline fn not(comptime T: type, to_mutate: SomeExpectation(T)) SomeExpectation(T) {
     return Not(T).bind(to_mutate);
 }
-fn Not(comptime T: type) type {
+pub fn Not(comptime T: type) type {
     return struct {
         const Self = @This();
 

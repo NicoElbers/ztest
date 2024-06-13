@@ -1,6 +1,6 @@
 const ztest = @import("ztest");
 
-const Expectation = ztest.Expectation;
+const ExpectationState = ztest.ExpectationState;
 const SomeException = ztest.SomeExpectation;
 
 const expect = ztest.expect;
@@ -20,7 +20,7 @@ pub fn Extension(comptime T: type) type {
         }
 
         // We get a pointer to Expectation(T).
-        pub fn expect(self: *const Self, expec: *Expectation(T)) !void {
+        pub fn expect(self: *const Self, expec: *ExpectationState(T)) !void {
             if (expec.val == self.value) return;
 
             return error.SomeError;

@@ -50,7 +50,7 @@ const ztest = @import("../ztest.zig");
 const exp = @import("core.zig");
 
 const expect = ztest.expect;
-const Expectation = exp.Expectation;
+const Expectation = exp.ExpectationState;
 const ExpectationError = exp.ExpectationError;
 
 pub fn SomeExpectation(comptime T: type) type {
@@ -94,7 +94,7 @@ pub fn SomeExpectation(comptime T: type) type {
 pub inline fn isError(expected: anytype) SomeExpectation(@TypeOf(expected)) {
     return IsError(@TypeOf(expected)).bind(expected);
 }
-fn IsError(comptime T: type) type {
+pub fn IsError(comptime T: type) type {
     switch (@typeInfo(T)) {
         .Type,
         .Void,
@@ -164,8 +164,7 @@ fn IsError(comptime T: type) type {
 pub inline fn isValue(comptime T: type) SomeExpectation(T) {
     return IsValue(T).bind();
 }
-fn IsValue(comptime T: type) type {
-    // TODO: Think of reworking this to only allow values that could be not values
+pub fn IsValue(comptime T: type) type {
     switch (@typeInfo(T)) {
         .Type,
         .Void,
@@ -229,7 +228,7 @@ fn IsValue(comptime T: type) type {
 pub inline fn isEqualTo(expected: anytype) SomeExpectation(@TypeOf(expected)) {
     return IsEqualTo(@TypeOf(expected)).bind(expected);
 }
-fn IsEqualTo(comptime T: type) type {
+pub fn IsEqualTo(comptime T: type) type {
     // TODO: Double check that I actually permit everything
     switch (@typeInfo(T)) {
         .Type,
@@ -297,7 +296,7 @@ pub const IsBetweenConfig = struct {
     include_lower: bool = true,
     include_upper: bool = false,
 };
-fn IsBetween(comptime T: type) type {
+pub fn IsBetween(comptime T: type) type {
     switch (@typeInfo(T)) {
         .Float,
         .ComptimeFloat,

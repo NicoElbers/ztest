@@ -11,8 +11,6 @@ const exp_meta_fn = @import("meta_functions.zig");
 const SomeExpectation = exp_fn.SomeExpectation;
 const Allocator = std.mem.Allocator;
 
-const expect = ztest.expect;
-
 pub const ExpectationError = error{
     Failed,
     NotEqual,
@@ -23,7 +21,7 @@ pub const ExpectationError = error{
     OutOfBounds,
 };
 
-pub fn Expectation(comptime T: type) type {
+pub fn ExpectationState(comptime T: type) type {
     return struct {
         const Self = @This();
 
@@ -35,7 +33,7 @@ pub fn Expectation(comptime T: type) type {
 
         alloc: Allocator = std.testing.allocator,
 
-        fn negative(self: *Expectation(T)) []const u8 {
+        fn negative(self: *ExpectationState(T)) []const u8 {
             if (self.negative_expectation) {
                 return " not";
             } else {
@@ -43,7 +41,7 @@ pub fn Expectation(comptime T: type) type {
             }
         }
 
-        pub fn handleError(self: *Expectation(T), err: anyerror) anyerror {
+        fn handleError(self: *ExpectationState(T), err: anyerror) anyerror {
             self.err = err;
             try colors.setColor(std.io.getStdErr(), .dim);
             const err_msg = try std.fmt.allocPrint(
@@ -70,7 +68,7 @@ pub fn Expectation(comptime T: type) type {
             return ExpectationError.Failed;
         }
 
-        pub fn inRuntime(self: *Expectation(T)) *Expectation(T) {
+        pub fn inRuntime(self: *ExpectationState(T)) *ExpectationState(T) {
             if (@inComptime()) {
                 @compileError("Test should run in rumtime");
             }
@@ -78,7 +76,7 @@ pub fn Expectation(comptime T: type) type {
             return self;
         }
 
-        pub fn inComptime(self: *Expectation(T)) *Expectation(T) {
+        pub fn inComptime(self: *ExpectationState(T)) *ExpectationState(T) {
             if (!@inComptime()) {
                 @panic("Test should be run in comptime");
             }
@@ -86,40 +84,72 @@ pub fn Expectation(comptime T: type) type {
             return self;
         }
 
-        pub fn has(self: *Expectation(T), arbitraryExpect: SomeExpectation(T)) !void {
+        pub fn has(self: *ExpectationState(T), arbitraryExpect: SomeExpectation(T)) !void {
             try arbitraryExpect.expect(self);
         }
 
-        pub fn isEqualTo(self: *Expectation(T), expected: T) !void {
+        pub fn isEqualTo(self: *ExpectationState(T), expected: T) !void {
             exp_fn.isEqualTo(expected).expect(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
-        pub fn isNotEqualTo(self: *Expectation(T), expected: T) !void {
+        pub fn isNotEqualTo(self: *ExpectationState(T), expected: T) !void {
             exp_meta_fn.not(T, exp_fn.isEqualTo(expected)).expect(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
-        pub fn isError(self: *Expectation(T), expected: T) !void {
+        pub fn isError(self: *ExpectationState(T), expected: T) !void {
             exp_fn.isError(expected).expect(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
-        pub fn isNotError(self: *Expectation(T), expected: T) !void {
+        pub fn isNotError(self: *ExpectationState(T), expected: T) !void {
             exp_meta_fn.not(T, exp_fn.isError(expected)).expect(self) catch |err| {
                 return self.handleError(err);
             };
         }
 
-        pub fn isValue(self: *Expectation(T)) !void {
+        pub fn isValue(self: *ExpectationState(T)) !void {
             exp_fn.isValue(T).expect(self) catch |err| {
                 return self.handleError(err);
             };
         }
     };
+}
+
+// NOTE: This is explicitly inlined to be able to return a pointer to the stack
+pub inline fn expect(val: anytype) *ExpectationState(@TypeOf(val)) {
+    var instance: ExpectationState(@TypeOf(val)) = ExpectationState(@TypeOf(val)){
+        .val = val,
+    };
+
+    return &instance;
+}
+
+test expect {
+    comptime try expect(123).isEqualTo(123);
+    try expect(@as(u32, 123)).isEqualTo(123);
+}
+
+pub fn expectAll(val: anytype, expectations: []const SomeExpectation(@TypeOf(val))) !void {
+    const expecta = expect(val);
+
+    for (expectations) |expec| {
+        expec.expect(expecta) catch |err| {
+            return expecta.handleError(err);
+        };
+    }
+}
+
+test expectAll {
+    try expectAll(@as(u32, 64), &.{
+        exp_fn.isEqualTo(@as(u32, 64)),
+        exp_fn.isValue(u32),
+        exp_meta_fn.not(u32, exp_fn.isEqualTo(@as(u32, 123))),
+    });
 }
 
 test "Expectation.inComptime" {
