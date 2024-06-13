@@ -1,7 +1,6 @@
 pub const utils = @import("utils/utils.zig");
 
 test {
-    const testing = @import("std").testing;
-
-    testing.refAllDeclsRecursive(readme);
+    _ = @import("readme/tests.zig");
+    _ = @import("expectations/test.zig");
 }
