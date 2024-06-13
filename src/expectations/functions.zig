@@ -46,9 +46,10 @@
 
 const std = @import("std");
 
+const ztest = @import("../ztest.zig");
 const exp = @import("core.zig");
 
-const expect = exp.expect;
+const expect = ztest.expect;
 const Expectation = exp.Expectation;
 const ExpectationError = exp.ExpectationError;
 

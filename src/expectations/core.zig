@@ -1,14 +1,17 @@
 const std = @import("std");
 const meta = std.meta;
 
-const colors = @import("utils").colors;
+const ztest = @import("../ztest.zig");
 const runner = @import("ztest_runner");
+const colors = @import("utils").colors;
 
 const exp_fn = @import("functions.zig");
 const exp_meta_fn = @import("meta_functions.zig");
 
 const SomeExpectation = exp_fn.SomeExpectation;
 const Allocator = std.mem.Allocator;
+
+const expect = ztest.expect;
 
 pub const ExpectationError = error{
     Failed,
@@ -40,7 +43,7 @@ pub fn Expectation(comptime T: type) type {
             }
         }
 
-        fn handleError(self: *Expectation(T), err: anyerror) anyerror {
+        pub fn handleError(self: *Expectation(T), err: anyerror) anyerror {
             self.err = err;
             try colors.setColor(std.io.getStdErr(), .dim);
             const err_msg = try std.fmt.allocPrint(
@@ -155,36 +158,4 @@ test "Expectation.isNotError" {
     };
 
     try expect(ErrUnion.someErr).isNotError(ErrUnion.someOtherErr);
-}
-
-// NOTE: This is explicitly inlined to be able to return a pointer
-pub inline fn expect(val: anytype) *Expectation(@TypeOf(val)) {
-    var instance: Expectation(@TypeOf(val)) = Expectation(@TypeOf(val)){
-        .val = val,
-    };
-
-    return &instance;
-}
-
-test expect {
-    comptime try expect(123).isEqualTo(123);
-    try expect(@as(u32, 123)).isEqualTo(123);
-}
-
-pub fn expectAll(val: anytype, expectations: []const SomeExpectation(@TypeOf(val))) !void {
-    const exp = expect(val);
-
-    for (expectations) |expec| {
-        expec.expect(exp) catch |err| {
-            return exp.handleError(err);
-        };
-    }
-}
-
-test expectAll {
-    try expectAll(@as(u32, 64), &.{
-        exp_fn.isEqualTo(@as(u32, 64)),
-        exp_fn.isValue(u32),
-        exp_meta_fn.not(u32, exp_fn.isEqualTo(@as(u32, 123))),
-    });
 }
