@@ -162,6 +162,7 @@ pub fn ExpectationState(comptime T: type) type {
 }
 
 // NOTE: This is explicitly inlined to be able to return a pointer to the stack
+// this is needed to make ExpectationState mutable in chaining calls
 pub inline fn expect(val: anytype) *ExpectationState(@TypeOf(val)) {
     var instance: ExpectationState(@TypeOf(val)) = ExpectationState(@TypeOf(val)){
         .val = val,
