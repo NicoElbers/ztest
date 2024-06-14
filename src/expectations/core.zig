@@ -22,6 +22,7 @@ pub const ExpectationError = error{
     UnexpectedValue,
     OutOfBounds,
     ValueNotFound,
+    NegativeExpectationFailed,
 };
 
 pub fn ExpectationState(comptime T: type) type {
@@ -80,6 +81,26 @@ pub fn ExpectationState(comptime T: type) type {
             return ExpectationError.Failed;
         }
 
+        // TODO: Temporary workaround to get shit to work
+        fn handleResult(self: *ExpectationState(T), res: anyerror!void) !void {
+            if (!self.negative_expectation and std.meta.isError(res)) {
+                return ExpectationError.NegativeExpectationFailed;
+            }
+
+            if (self.negative_expectation) {
+                if (std.meta.isError(res)) {
+                    return;
+                } else {
+                    try self.output.writeAll(" Negative Expecation failed");
+                    return ExpectationError.NegativeExpectationFailed;
+                }
+            }
+
+            _ = res catch |err| {
+                return self.handleError(err);
+            };
+        }
+
         fn makeErrorMessage(self: *ExpectationState(T)) []const u8 {
             std.debug.assert(self.err != null);
 
@@ -103,38 +124,39 @@ pub fn ExpectationState(comptime T: type) type {
             return self;
         }
 
-        pub fn has(self: *ExpectationState(T), arbitraryExpect: SomeExpectation(T)) !void {
-            try arbitraryExpect.expectation(self);
+        pub fn not(self: *ExpectationState(T)) *ExpectationState(T) {
+            self.negative_expectation = !self.negative_expectation;
+            return self;
+        }
+
+        pub fn has(self: *ExpectationState(T), some_expectation: SomeExpectation(T)) !void {
+            const res = some_expectation.expectation(self);
+            return self.handleResult(res);
         }
 
         pub fn isEqualTo(self: *ExpectationState(T), expected: T) !void {
-            exp_fn.isEqualTo(expected).expectation(self) catch |err| {
-                return self.handleError(err);
-            };
+            const res = exp_fn.isEqualTo(expected).expectation(self);
+            return self.handleResult(res);
         }
 
         pub fn isNotEqualTo(self: *ExpectationState(T), expected: T) !void {
-            exp_meta_fn.not(T, exp_fn.isEqualTo(expected)).expectation(self) catch |err| {
-                return self.handleError(err);
-            };
+            const res = exp_meta_fn.not(T, exp_fn.isEqualTo(expected)).expectation(self);
+            return self.handleResult(res);
         }
 
         pub fn isError(self: *ExpectationState(T), expected: T) !void {
-            exp_fn.isError(expected).expectation(self) catch |err| {
-                return self.handleError(err);
-            };
+            const res = exp_fn.isError(expected).expectation(self);
+            return self.handleResult(res);
         }
 
         pub fn isNotError(self: *ExpectationState(T), expected: T) !void {
-            exp_meta_fn.not(T, exp_fn.isError(expected)).expectation(self) catch |err| {
-                return self.handleError(err);
-            };
+            const res = exp_meta_fn.not(T, exp_fn.isError(expected)).expectation(self);
+            return self.handleResult(res);
         }
 
         pub fn isValue(self: *ExpectationState(T)) !void {
-            exp_fn.isValue(T).expectation(self) catch |err| {
-                return self.handleError(err);
-            };
+            const res = exp_fn.isValue(T).expectation(self);
+            return self.handleResult(res);
         }
     };
 }
@@ -154,12 +176,12 @@ test expect {
 }
 
 pub fn expectAll(val: anytype, expectations: []const SomeExpectation(@TypeOf(val))) !void {
-    const state = expect(val);
-
     for (expectations) |some_expectation| {
-        some_expectation.expectation(state) catch |err| {
-            return state.handleError(err);
-        };
+        // const state = expect(val);
+        // some_expectation.expectation(state) catch |err| {
+        //     return state.handleError(err);
+        // };
+        try expect(val).has(some_expectation);
     }
 }
 

@@ -88,16 +88,7 @@ pub fn Not(comptime T: type) type {
 
         pub fn expectation(self: *const Self, expec: *ExpectationState(T)) !void {
             expec.negative_expectation = !expec.negative_expectation;
-            self.some_expectation.expectation(expec) catch |err| {
-                if (isExpectationError(err)) {
-                    expec.err = null;
-                    return;
-                }
-
-                return err;
-            };
-
-            return ExpectationError.Failed;
+            return self.some_expectation.expectation(expec);
         }
     };
 }
