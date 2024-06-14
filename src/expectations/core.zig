@@ -46,6 +46,7 @@ pub fn ExpectationState(comptime T: type) type {
             }
         }
 
+        // TODO: Completely rework this to give actually good error messages
         fn handleError(self: *ExpectationState(T), err: anyerror) anyerror {
             self.err = err;
 
