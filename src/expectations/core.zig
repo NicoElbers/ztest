@@ -57,6 +57,7 @@ pub fn ExpectationState(comptime T: type) type {
                 " Expectation failed due to: {s}",
                 .{@errorName(err)},
             );
+            defer self.alloc.free(err_msg);
             std.debug.print("{s}", .{err_msg});
 
             if (self.expected) |expected| {
@@ -65,6 +66,7 @@ pub fn ExpectationState(comptime T: type) type {
                     "; Expected{s} {any} but was {any}",
                     .{ self.negative(), expected, self.val },
                 );
+                defer self.alloc.free(instead_msg);
                 std.debug.print("{s}", .{instead_msg});
             } else {
                 // HACK: I need to remove this at some point
