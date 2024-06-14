@@ -86,7 +86,7 @@ pub fn ExpectationState(comptime T: type) type {
 
         pub fn inRuntime(self: *ExpectationState(T)) *ExpectationState(T) {
             if (@inComptime()) {
-                @compileError("Test should run in rumtime");
+                @compileError("Test should run in runtime");
             }
 
             return self;
