@@ -50,7 +50,9 @@ pub fn nukeStack(depth: u32) void {
 }
 
 pub fn nukeComptimeStack(depth: comptime_int) void {
-    if (depth == 0) return;
+    comptime {
+        if (depth == 0) return;
 
-    @call(.auto, nukeComptimeStack, .{depth - 1});
+        @call(.auto, nukeComptimeStack, .{depth - 1});
+    }
 }
