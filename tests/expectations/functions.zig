@@ -30,3 +30,33 @@ test "isError error set" {
     try expect(input).isError(error.someErr);
     try expect(input).not().isError(Errors.someOtherErr);
 }
+
+test "isValue normal value" {
+    const input: u8 = 123;
+
+    try expect(input).isValue();
+}
+
+test "isValue error set" {
+    const Errors = error{ someErr, someOtherErr };
+
+    const input: Errors = Errors.someErr;
+
+    try expect(input).not().isValue();
+}
+
+test "isValue Error union error" {
+    const Errors = error{ someErr, someOtherErr };
+
+    const input: Errors!u8 = Errors.someErr;
+
+    try expect(input).not().isValue();
+}
+
+test "isValue Error union value" {
+    const Errors = error{ someErr, someOtherErr };
+
+    const input: Errors!u8 = 123;
+
+    try expect(input).isValue();
+}
