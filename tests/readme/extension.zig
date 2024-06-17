@@ -5,36 +5,44 @@ const SomeException = ztest.SomeExpectation;
 
 const expect = ztest.expect;
 
-pub fn Extension(comptime T: type) type {
-    return struct {
-        const Self = @This();
+// Here we explore how to make an your own extension to ztest. These are the reccomended
+// way to create your own (complex) assertions. There are stateful expectations, they
+// are explained below but avoiding these is preferred.
 
-        value: T,
+// If we have a simple expectation we can simply do this
+pub fn u32IsFour(state: *ExpectationState(u32)) !void {
+    if (state.val == 4) return;
 
-        // Useful initialization function
-        // This is inline because we're returning `&Self{}`. If we were to not
-        // inline this function we would have to first create an instance and then
-        // call bind or allocate to the heap, which is not ideal
-        pub inline fn bind(val: T) SomeException(T) {
-            return SomeException(T).init(&Self{ .value = val });
-        }
+    return error.WasNotFour;
+}
 
-        // We get a pointer to Expectation(T).
-        pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
-            if (state.val == self.value) return;
+test "simple extension" {
+    const input: u32 = 4;
 
-            return error.SomeError;
+    try expect(input).has(u32IsFour);
+}
+
+// If we want to expand this to take any integer we can do this
+//
+// `ExpectationState(T).ExpectationFunc` == `*const fn(*ExpectationState(T)) anyerror!void`
+pub fn intIsFour(comptime T: type) ExpectationState(T).ExpectationFunc {
+    const inner = struct {
+        pub fn intIsFour(state: *ExpectationState(T)) !void {
+            if (state.val == 4) return;
+
+            return error.WasNotFour;
         }
     };
+
+    return inner.intIsFour;
 }
 
-// Another useful function to create the extention and bind in one go:
-// Again inlined because we return a pointer to the stack
-pub inline fn extension(expected: anytype) SomeException(@TypeOf(expected)) {
-    return Extension(@TypeOf(expected)).bind(expected);
-}
+test "generic extension" {
+    const input_u32: u32 = 4;
+    const input_u64: u64 = 4;
+    const input_comptime = 4;
 
-// Using our extension
-test "extension" {
-    try expect(@as(u32, 123)).has(extension(@as(u32, 123)));
+    try expect(input_u32).has(intIsFour(u32));
+    try expect(input_u64).has(intIsFour(u64));
+    comptime try expect(input_comptime).has(intIsFour(comptime_int));
 }

@@ -262,7 +262,7 @@ test IsEqualTo {
 
     try expect(@as(u32, 123))
         .inRuntime()
-        .has(IsEqualTo(u32).bind(val));
+        .hasRaw(IsEqualTo(u32).bind(val));
 }
 
 pub const RangeConfig = struct {

@@ -29,6 +29,8 @@ pub fn ExpectationState(comptime T: type) type {
     return struct {
         const Self = @This();
 
+        pub const ExpectationFunc: type = *const fn (*ExpectationState(T)) anyerror!void;
+
         val: T,
         expected: ?T = null,
 
@@ -129,7 +131,12 @@ pub fn ExpectationState(comptime T: type) type {
             return self;
         }
 
-        pub fn has(self: *ExpectationState(T), some_expectation: SomeExpectation(T)) !void {
+        pub fn has(self: *ExpectationState(T), expectation: ExpectationFunc) !void {
+            const res = expectation(self);
+            return self.handleResult(res);
+        }
+
+        pub fn hasRaw(self: *ExpectationState(T), some_expectation: SomeExpectation(T)) !void {
             const res = some_expectation.expectation(self);
             return self.handleResult(res);
         }
@@ -182,7 +189,7 @@ pub fn expectAll(val: anytype, expectations: []const SomeExpectation(@TypeOf(val
         // some_expectation.expectation(state) catch |err| {
         //     return state.handleError(err);
         // };
-        try expect(val).has(some_expectation);
+        try expect(val).hasRaw(some_expectation);
     }
 }
 
