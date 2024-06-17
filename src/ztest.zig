@@ -13,7 +13,8 @@ pub const expect = exp.expect;
 pub const expectAll = exp.expectAll;
 
 test {
-    std.testing.refAllDeclsRecursive(exp);
-    std.testing.refAllDeclsRecursive(exp_fn);
-    std.testing.refAllDeclsRecursive(exp_meta_fn);
+    _ = @import("expectations/core.zig");
+    _ = @import("expectations/functions.zig");
+    _ = @import("expectations/meta_functions.zig");
+    _ = @import("parameterized_tests/core.zig");
 }
