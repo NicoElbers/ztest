@@ -41,8 +41,8 @@ pub fn parameterizedTest(func: anytype, param_list: anytype) void {
         }
     }
 
-    inline for (param_list) |thingy| {
-        @call(.auto, func, thingy);
+    inline for (param_list) |tuple_param| {
+        @call(.auto, func, tuple_param);
     }
 }
 
@@ -73,7 +73,7 @@ pub fn extractStructFieldTypes(fields: []const std.builtin.Type.StructField) []t
 }
 
 fn testFunc(first: u32, second: u64) void {
-    std.debug.print("\n{d}\n", .{first + second});
+    _ = first + second;
 }
 
 test "simple" {
@@ -88,7 +88,7 @@ test "simple" {
 }
 
 fn testFunc2(first: anytype) void {
-    std.debug.print("\n{any}\n", .{@typeInfo(@TypeOf(first))});
+    _ = first;
 }
 
 test "anytype" {
@@ -100,5 +100,15 @@ test "anytype" {
         .{@as(?type, u53)},
         .{@as(u32, 432)},
         .{val},
+    });
+}
+
+fn testFunc3(comptime T: type) void {
+    _ = T;
+}
+
+test "comptime" {
+    parameterizedTest(testFunc3, .{
+        .{u32},
     });
 }
