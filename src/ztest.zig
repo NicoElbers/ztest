@@ -12,6 +12,8 @@ pub const SomeExpectation = exp_fn.SomeExpectation;
 pub const expect = exp.expect;
 pub const expectAll = exp.expectAll;
 
+pub const parameterizedTest = @import("parameterized_tests/core.zig").parameterizedTest;
+
 test {
     _ = @import("expectations/core.zig");
     _ = @import("expectations/functions.zig");
