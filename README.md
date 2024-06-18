@@ -29,13 +29,7 @@ test "multiple expectations" {
 
 ### Extensibility
 
-One of the core features of the library is to be able to easily extend exceptions.
-
-You must implement `SomeException(type)` by providing a function
-
-```zig
-pub fn expectation(self: *const @This(), state: *ExpectationState(T)) !void {}
-```
+One of the core features of the library is to be able to easily extend exceptions. There are 4 ways to do this:
 
 ```zig
 const ztest = @import("ztest");
