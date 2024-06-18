@@ -156,7 +156,7 @@ pub fn IntIsNumber(comptime T: type) type {
 
 // A useful initialization function that binds everything at once
 // Again explicitly inlined
-pub fn intIsNumber(number: anytype) SomeException(@TypeOf(number)) {
+pub inline fn intIsNumber(number: anytype) SomeException(@TypeOf(number)) {
     return IntIsNumber(@TypeOf(number)).bind(number);
 }
 
