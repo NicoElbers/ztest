@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn parameterizedTest(func: anytype, param_list: anytype) void {
+pub fn parameterizedTest(func: anytype, param_list: anytype) !void {
     const func_type = @TypeOf(func);
     const func_info = @typeInfo(func_type);
     const param_list_info = @typeInfo(@TypeOf(param_list));
@@ -42,7 +42,22 @@ pub fn parameterizedTest(func: anytype, param_list: anytype) void {
     }
 
     inline for (param_list) |tuple_param| {
-        @call(.auto, func, tuple_param);
+        try callAnyFunction(func, tuple_param);
+    }
+}
+
+pub fn callAnyFunction(func: anytype, args: anytype) !void {
+    const info = @typeInfo(@TypeOf(func));
+    if (info != .Fn)
+        @compileError("callAnyFunction takes in a function and argument tuple");
+
+    const RetT = info.Fn.return_type.?;
+    switch (@typeInfo(RetT)) {
+        .ErrorUnion,
+        .ErrorSet,
+        => _ = try @call(.auto, func, args),
+
+        else => _ = @call(.auto, func, args),
     }
 }
 
@@ -80,7 +95,7 @@ test "simple" {
     var val: u64 = 123;
     _ = &val;
 
-    parameterizedTest(testFunc, .{
+    try parameterizedTest(testFunc, .{
         .{ @as(u32, 123), @as(u64, 432) },
         .{ @as(u32, 4325), val },
         .{ @as(u32, 4), @as(u64, 1) },
@@ -95,7 +110,7 @@ test "anytype" {
     var val: u32 = 342;
     _ = &val;
 
-    parameterizedTest(testFunc2, .{
+    try parameterizedTest(testFunc2, .{
         .{123},
         .{@as(?type, u53)},
         .{@as(u32, 432)},
@@ -108,7 +123,7 @@ fn testFunc3(comptime T: type) void {
 }
 
 test "comptime" {
-    parameterizedTest(testFunc3, .{
+    try parameterizedTest(testFunc3, .{
         .{u32},
     });
 }
