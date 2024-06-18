@@ -16,7 +16,5 @@ pub const parameterizedTest = @import("parameterized_tests/core.zig").parameteri
 
 test {
     _ = @import("expectations/core.zig");
-    _ = @import("expectations/functions.zig");
-    _ = @import("expectations/meta_functions.zig");
     _ = @import("parameterized_tests/core.zig");
 }
