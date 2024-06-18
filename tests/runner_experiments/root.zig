@@ -1,21 +1,14 @@
 test {
-    const root = @import("root");
     const std = @import("std");
+    const ztest = @import("ztest");
 
-    var is_ztest = false;
-
-    const root_decls = comptime std.meta.declarations(root);
-    inline for (root_decls) |decl| {
-        if (std.mem.eql(u8, "IsZtestRunner", decl.name)) {
-            is_ztest = true;
-            break;
-        }
-    }
+    const is_ztest = ztest.utils.isUsingZtestRunner();
 
     if (!is_ztest) {
-        std.debug.print("\n\n IS NOT ZTEST \n\n", .{});
+        std.debug.print("\n\n SERVER IS NOT ZTEST RUNNER \n\n", .{});
         return;
     } else {
-        std.debug.print("\n\n IS ZTEST \n\n", .{});
+        ztest.utils.setUsingZtest();
+        std.debug.print("\n\n SERVER IS ZTEST RUNNER \n\n", .{});
     }
 }

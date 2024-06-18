@@ -8,6 +8,7 @@ const colors = io.tty;
 const File = std.fs.File;
 
 pub const IsZtestRunner = void;
+pub var clientUsingZtest: bool = false;
 
 pub fn main() !void {
     std.testing.log_level = .warn;
