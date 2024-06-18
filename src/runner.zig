@@ -34,4 +34,8 @@ pub fn runTests(file: File, tests: []const std.builtin.TestFn) !void {
         try writer.writeAll(" passed\n");
         try config.setColor(writer, .reset);
     }
+
+    if (clientUsingZtest) {
+        std.debug.print("\n\n\n\n\n\nCLIENT IS USING ZTEST\n\n\n\n\n\n\n", .{});
+    }
 }
