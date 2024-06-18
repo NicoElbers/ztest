@@ -161,7 +161,7 @@ pub fn ExpectationState(comptime T: type) type {
             return self.handleResult(res);
         }
 
-        pub fn isValue(self: *ExpectationState(T)) !void {
+        pub fn isAnyValue(self: *ExpectationState(T)) !void {
             const res = exp_fn.isValue(T).expectation(self);
             return self.handleResult(res);
         }
