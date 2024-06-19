@@ -50,4 +50,36 @@ test "isAnyValue normal value" {
         .{Errors.someErr},
         .{@as(Errors!u8, Errors.someErr)},
     });
+
+test "isEqualTo equal" {
+    const equality = struct {
+        pub fn inner(input: anytype, expected: @TypeOf(input)) !void {
+            try expect(input).isEqualTo(expected);
+        }
+    }.inner;
+
+    const alloc = ztest.allocator;
+    const first = try alloc.create(u8);
+    defer alloc.destroy(first);
+    first.* = 123;
+
+    const second = try alloc.create(u8);
+    defer alloc.destroy(second);
+    second.* = 123;
+
+    try expect(@intFromPtr(first)).not().isEqualTo(@intFromPtr(second));
+
+    try parameterizedTest(equality, .{
+        .{ true, true },
+        .{ @as(u8, 123), @as(u8, 123) },
+        .{ @as(f32, 123.456), @as(f32, 123.456) },
+        .{ first, second },
+    });
+
+    comptime try parameterizedTest(equality, .{
+        .{ true, true },
+        .{ @as(u8, 123), @as(u8, 123) },
+        .{ @as(f32, 123.456), @as(f32, 123.456) },
+        // .{ first, second },
+    });
 }

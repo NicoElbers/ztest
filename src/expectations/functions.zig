@@ -47,6 +47,7 @@
 const std = @import("std");
 
 const ztest = @import("../ztest.zig");
+const checker = @import("checkers.zig");
 const exp = @import("core.zig");
 
 const expect = ztest.expect;
@@ -194,43 +195,6 @@ pub inline fn isEqualTo(expected: anytype) SomeExpectation(@TypeOf(expected)) {
     return IsEqualTo(@TypeOf(expected)).bind(expected);
 }
 pub fn IsEqualTo(comptime T: type) type {
-    // TODO: Fix later
-    //
-    // switch (@typeInfo(T)) {
-    //     .Pointer, // Mabybe check underlying type myself
-    //     .Optional, // Mabybe check underlying type myself
-    //     .ErrorUnion, // Mabybe check underlying type myself
-    //     .Union, // Mabybe check underlying types myself
-    //     .Vector, // Mabybe check underlying type myself
-    //     .Array, // Mabybe check underlying type myself
-    //     .Struct, // Mabybe check underlying type myself
-    //     => @compileError("Check underlying type myself"),
-
-    //     .Int,
-    //     .ComptimeInt,
-    //     .Bool,
-    //     .Null,
-    //     => {},
-
-    //     .ErrorSet,
-    //     .Enum,
-    //     .Fn,
-    //     .Opaque,
-    //     .EnumLiteral,
-    //     => @compileError("Verify that equality for " ++ @typeName(T) ++ " is done correctly"),
-
-    //     .Float,
-    //     .ComptimeFloat,
-    //     // TODO: Make this
-    //     => @compileError("For " ++ @typeName(T) ++ " equality, use IsEqualF instead"),
-
-    //     .Frame,
-    //     .AnyFrame,
-    //     => @compileError(@typeName(T) ++ " is not supported by zig master. File an issue if this is no longer the case"),
-
-    //     else => @compileError("Cannot check equality for " ++ @typeName(T)),
-    // }
-
     return struct {
         const Self = @This();
 
@@ -250,9 +214,10 @@ pub fn IsEqualTo(comptime T: type) type {
             state.expected = self.val;
 
             // TODO: See if I can make std.meta.eql better/ more explicit
-            if (std.meta.eql(self.val, state.val)) return;
-
-            return ExpectationError.NotEqual;
+            // if (!std.meta.eql(self.val, state.val))
+            //     return ExpectationError.NotEqual;
+            if (!checker.deepEquals(self.val, state.val))
+                return ExpectationError.NotEqual;
         }
     };
 }
