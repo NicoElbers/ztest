@@ -27,9 +27,14 @@ test "isError" {
         .{@as(Errors, Errors.someErr)},
         .{@as(Errors!u8, Errors.someErr)},
     });
+
+    comptime try parameterizedTest(inner.exect, .{
+        .{@as(Errors, Errors.someErr)},
+        .{@as(Errors!u8, Errors.someErr)},
+    });
 }
 
-test "isAnyValue normal value" {
+test "isAnyValue" {
     const Errors = error{ someErr, someOtherErr };
 
     const inner = struct {
@@ -50,6 +55,17 @@ test "isAnyValue normal value" {
         .{Errors.someErr},
         .{@as(Errors!u8, Errors.someErr)},
     });
+
+    comptime try parameterizedTest(inner.isVal, .{
+        .{@as(u8, 43)},
+        .{@as(Errors!u8, 12)},
+    });
+
+    comptime try parameterizedTest(inner.isNotVal, .{
+        .{Errors.someErr},
+        .{@as(Errors!u8, Errors.someErr)},
+    });
+}
 
 test "isEqualTo equal" {
     const equality = struct {

@@ -41,6 +41,10 @@ test "expect all runtime types" {
 }
 
 test "expect all comptime types" {
+    const Errors = error{ someErr, someOtherErr };
+    const SomeEnum = enum { a, b };
+    const SomeTaggedUnion = union(enum) { a: u32, b: u64 };
+
     const inner = struct {
         pub fn unchanged(in: anytype) !void {
             const state = expect(in);
@@ -61,6 +65,21 @@ test "expect all comptime types" {
         .{123},
         .{inner.unchanged},
         .{.A},
+
+        // The runtime types as well
+        .{true},
+        .{@as(u8, 123)},
+        .{@as(f32, 32.34)},
+        .{@as(*const u8, &43)},
+        .{[_]u8{ 1, 2, 3 }},
+        .{@as(?u8, null)},
+        .{@as(Errors!u8, Errors.someErr)},
+        .{@as(Errors!u8, 8)},
+        .{@as(Errors, Errors.someErr)},
+        .{SomeEnum.a},
+        .{SomeTaggedUnion{ .a = 543 }},
+        .{@as(*const anyopaque, &8)},
+        .{@as(@Vector(5, u8), @splat(13))},
     });
 }
 
