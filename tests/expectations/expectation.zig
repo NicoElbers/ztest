@@ -10,7 +10,7 @@ const utils = @import("../tests.zig").utils;
 test "expect all runtime types" {
     const Errors = error{ someErr, someOtherErr };
     const SomeEnum = enum { a, b };
-    const SomeUnion = union { a: u32, b: u64 };
+    const SomeTaggedUnion = union(enum) { a: u32, b: u64 };
 
     const inner = struct {
         pub fn unchanged(in: anytype) !void {
@@ -34,7 +34,7 @@ test "expect all runtime types" {
         .{@as(Errors!u8, 8)},
         .{@as(Errors, Errors.someErr)},
         .{SomeEnum.a},
-        .{SomeUnion{ .a = 543 }},
+        .{SomeTaggedUnion{ .a = 543 }},
         .{@as(*const anyopaque, &8)},
         .{@as(@Vector(5, u8), @splat(13))},
     });
