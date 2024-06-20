@@ -31,8 +31,17 @@ pub fn ExpectationState(comptime T: type) type {
 
         pub const ExpectationFunc: type = *const fn (*ExpectationState(T)) anyerror!void;
 
+        // This is needed because null cannot be optional
+        const ExpectedT = blk: {
+            if (T == @TypeOf(null)) {
+                break :blk T;
+            } else {
+                break :blk ?T;
+            }
+        };
+
         val: T,
-        expected: ?T = null,
+        expected: ExpectedT = null,
 
         negative_expectation: bool = false,
         err: ?anyerror = null,
