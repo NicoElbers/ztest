@@ -40,6 +40,9 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .AnyFrame,
         => a == b, // pointer equality
 
+        .Type,
+        => a == b,
+
         else => @compileError(@typeName(@TypeOf(a)) ++ " is not supported for deepEquals"),
     };
 }
