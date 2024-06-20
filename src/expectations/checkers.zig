@@ -11,7 +11,6 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .Null,
         => true, // Only one value
 
-        .ErrorSet,
         .Enum,
         => true, // Doesn't compile otherwise
 
@@ -19,6 +18,9 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .ComptimeInt,
         .Bool,
         => a == b, // Simple equality
+
+        .ErrorSet,
+        => a == b, // Simple comptime equality
 
         .Float,
         .ComptimeFloat,
