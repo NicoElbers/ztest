@@ -1,4 +1,5 @@
 # Ztest
+##TODO: update the readme, pretty sure this still compiles, but the projects moved further with parameterized tests.
 
 Ztest is a testing library for the Zig programming lanuage. It's currenly in very early development.
 
