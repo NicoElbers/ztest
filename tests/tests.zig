@@ -4,4 +4,5 @@ test {
     _ = @import("readme/tests.zig");
     _ = @import("expectations/test.zig");
     _ = @import("runner_experiments/root.zig");
+    _ = @import("ztest_runner/tests.zig");
 }
