@@ -9,6 +9,7 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .Void,
         .NoReturn,
         .Null,
+        .Undefined,
         => true, // Only one value
 
         .Enum,
@@ -20,13 +21,20 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         => a == b, // Simple equality
 
         .ErrorSet,
+        .EnumLiteral,
+        .Type,
         => a == b, // Simple comptime equality
+
+        .Fn,
+        .Opaque,
+        .Frame,
+        .AnyFrame,
+        => a == b, // pointer equality
 
         .Float,
         .ComptimeFloat,
         => floatEql(a, b),
 
-        .Pointer => |ptr| return pointerEql(a, b, ptr),
         .Array,
         .Vector,
         => deepEquals(&a, &b), //Make use of pointerEql
@@ -34,18 +42,8 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .Struct => structEql(a, b),
         .Optional => optionalEql(a, b),
         .ErrorUnion => errorUnionEql(a, b),
-
         .Union => |info| unionEql(a, b, info),
-        .Fn,
-        .Opaque,
-        .Frame,
-        .AnyFrame,
-        => a == b, // pointer equality
-
-        .Type,
-        => a == b,
-
-        else => @compileError(@typeName(@TypeOf(a)) ++ " is not supported for deepEquals"),
+        .Pointer => |ptr| pointerEql(a, b, ptr),
     };
 }
 
