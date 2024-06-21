@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const runner = @import("ztest_runner");
+pub const runner = @import("ztest_runner");
 
 pub const util = @import("util");
 pub const exp = @import("expectations/core.zig");
