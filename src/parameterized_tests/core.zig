@@ -1,6 +1,31 @@
 const std = @import("std");
+const ztest = @import("../ztest.zig");
+const runner = ztest.runner;
+const util = ztest.util;
 
-pub fn parameterizedTest(func: anytype, param_list: anytype) !void {
+pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
+    verifyArguments(func, param_list);
+
+    inline for (param_list) |param_tuple| {
+        if (util.isUsingZtestRunner) {
+            // const msg = std.fmt.allocPrint(ztest.allocator, "Parameterized test {any}", .{param_tuple}) catch blk: {
+            //     break :blk try std.fmt.allocPrint(ztest.allocator, "Parameterized test {{unknown}}", .{});
+            // };
+            const msg = try std.fmt.allocPrint(ztest.allocator, "Parameterized test", .{});
+            defer ztest.allocator.free(msg);
+
+            try util.runTest(
+                msg,
+                func,
+                param_tuple,
+            );
+        } else {
+            try util.callAnyFunction(func, param_tuple);
+        }
+    }
+}
+
+fn verifyArguments(comptime func: anytype, param_list: anytype) void {
     const func_type = @TypeOf(func);
     const func_info = @typeInfo(func_type);
     const param_list_info = @typeInfo(@TypeOf(param_list));
@@ -39,25 +64,6 @@ pub fn parameterizedTest(func: anytype, param_list: anytype) !void {
                 ));
             }
         }
-    }
-
-    inline for (param_list) |param_tuple| {
-        try callAnyFunction(func, param_tuple);
-    }
-}
-
-pub fn callAnyFunction(func: anytype, args: anytype) !void {
-    const info = @typeInfo(@TypeOf(func));
-    if (info != .Fn)
-        @compileError("callAnyFunction takes in a function and argument tuple");
-
-    const RetT = info.Fn.return_type.?;
-    switch (@typeInfo(RetT)) {
-        .ErrorUnion,
-        .ErrorSet,
-        => _ = try @call(.auto, func, args),
-
-        else => _ = @call(.auto, func, args),
     }
 }
 

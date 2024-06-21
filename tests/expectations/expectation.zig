@@ -39,25 +39,24 @@ test "expect all runtime types" {
         .{@as(@Vector(5, u8), @splat(13))},
     });
 }
-
 test "expect all comptime types" {
     const Errors = error{ someErr, someOtherErr };
     const SomeEnum = enum { a, b };
     const SomeTaggedUnion = union(enum) { a: u32, b: u64 };
 
     const inner = struct {
-        pub fn unchanged(in: anytype) !void {
-            const state = expect(in);
+        pub fn unchanged(comptime in: anytype) !void {
+            @setEvalBranchQuota(1_000_000);
+            const state = comptime expect(in);
             const T = @TypeOf(state);
 
             util.nukeComptimeStack(1024);
 
-            try expect(state).has(stateUnchanged(T));
+            comptime try expect(state).has(stateUnchanged(T));
         }
     };
 
-    @setEvalBranchQuota(1_000_000);
-    comptime try parameterizedTest(inner.unchanged, .{
+    try parameterizedTest(inner.unchanged, .{
         .{@as(type, u8)},
         .{void},
         .{inner},
@@ -82,37 +81,6 @@ test "expect all comptime types" {
         .{@as(@Vector(5, u8), @splat(13))},
     });
 }
-
-// test "expectAll all runtime types" {
-//     const info = @typeInfo(utils.AllRuntimeTypes);
-
-//     inline for (info.Struct.fields) |field| {
-//         const T: type = field.type;
-//         const val_ptr: *T = @ptrCast(@alignCast(@constCast(field.default_value.?)));
-//         const val: T = val_ptr.*;
-
-//         try expectAll(val, &.{
-//             StateIsUntouched(T).bind(),
-//         });
-//     }
-// }
-
-// test "expectAll all comptime types" {
-//     const info = @typeInfo(utils.AllComptimeTypes);
-
-//     @setEvalBranchQuota(1_000_000);
-//     comptime {
-//         for (info.Struct.fields) |field| {
-//             const T: type = field.type;
-//             const val_ptr: *T = @ptrCast(@alignCast(@constCast(field.default_value.?)));
-//             const val: T = val_ptr.*;
-
-//             try expectAll(val, &.{
-//                 StateIsUntouched(T).bind(),
-//             });
-//         }
-//     }
-// }
 
 const SomeExpectation = ztest.SomeExpectation;
 const ExpectationState = ztest.ExpectationState;

@@ -26,7 +26,7 @@ test "isError" {
         .{@as(Errors!u8, Errors.someErr)},
     });
 
-    comptime try parameterizedTest(inner.exect, .{
+    try parameterizedTest(inner.exect, .{
         .{@as(Errors, Errors.someErr)},
         .{@as(Errors!u8, Errors.someErr)},
     });
@@ -52,12 +52,12 @@ test "isAnyValue" {
         .{@as(Errors!u8, Errors.someErr)},
     });
 
-    comptime try parameterizedTest(inner.isVal, .{
+    try parameterizedTest(inner.isVal, .{
         .{@as(u8, 43)},
         .{@as(Errors!u8, 12)},
     });
 
-    comptime try parameterizedTest(inner.isNotVal, .{
+    try parameterizedTest(inner.isNotVal, .{
         .{Errors.someErr},
         .{@as(Errors!u8, Errors.someErr)},
     });
@@ -90,8 +90,16 @@ test "isEqualTo equal" {
         .{ first, second },
         .{ @constCast(@as(*const u32, &123)), @constCast(@as(*const u32, &123)) },
     });
+}
 
-    comptime try parameterizedTest(equality, .{
+test "isEqualTo equal comptime" {
+    const equality = struct {
+        pub fn inner(comptime input: anytype, comptime expected: @TypeOf(input)) !void {
+            comptime try expect(input).isEqualTo(expected);
+        }
+    }.inner;
+
+    try parameterizedTest(equality, .{
         .{ void, void },
         .{ noreturn, noreturn },
         .{ null, null },
@@ -119,8 +127,16 @@ test "isEqualTo not equal" {
         .{ @as(f32, 123.456), @as(f32, 123.653) },
         .{ @as(*const u32, &123), @as(*const u32, &456) },
     });
+}
 
-    comptime try parameterizedTest(equality, .{
+test "isEqualTo not equal comptime" {
+    const equality = struct {
+        pub fn inner(comptime input: anytype, comptime expected: @TypeOf(input)) !void {
+            comptime try expect(input).not().isEqualTo(expected);
+        }
+    }.inner;
+
+    try parameterizedTest(equality, .{
         .{ @as(Errors, Errors.someErr), @as(Errors, Errors.someOtherErr) },
         .{ true, false },
         .{ @as(u8, 123), @as(u8, 124) },

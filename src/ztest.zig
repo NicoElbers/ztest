@@ -13,7 +13,9 @@ pub const SomeExpectation = exp_fn.SomeExpectation;
 pub const expect = exp.expect;
 pub const expectAll = exp.expectAll;
 
-pub const parameterizedTest = @import("parameterized_tests/core.zig").parameterizedTest;
+const parameterizedTests = @import("parameterized_tests/core.zig");
+
+pub const parameterizedTest = parameterizedTests.parameterizedTest;
 
 pub const allocator = std.testing.allocator;
 
