@@ -31,8 +31,17 @@ pub fn ExpectationState(comptime T: type) type {
 
         pub const ExpectationFunc: type = *const fn (*ExpectationState(T)) anyerror!void;
 
+        // This is needed because null cannot be optional
+        const ExpectedT = blk: {
+            if (T == @TypeOf(null)) {
+                break :blk T;
+            } else {
+                break :blk ?T;
+            }
+        };
+
         val: T,
-        expected: ?T = null,
+        expected: ExpectedT = null,
 
         negative_expectation: bool = false,
         err: ?anyerror = null,
@@ -146,18 +155,8 @@ pub fn ExpectationState(comptime T: type) type {
             return self.handleResult(res);
         }
 
-        pub fn isNotEqualTo(self: *ExpectationState(T), expected: T) !void {
-            const res = exp_meta_fn.not(T, exp_fn.isEqualTo(expected)).expectation(self);
-            return self.handleResult(res);
-        }
-
         pub fn isError(self: *ExpectationState(T), expected: T) !void {
             const res = exp_fn.isError(expected).expectation(self);
-            return self.handleResult(res);
-        }
-
-        pub fn isNotError(self: *ExpectationState(T), expected: T) !void {
-            const res = exp_meta_fn.not(T, exp_fn.isError(expected)).expectation(self);
             return self.handleResult(res);
         }
 
@@ -215,12 +214,6 @@ test "Expectation.isEqualTo" {
     try expect(val1).isEqualTo(val2);
 }
 
-test "Expectation.isNotEqualTo" {
-    const val1: u60 = 123;
-    const val2: u64 = 124;
-    try expect(val1).isNotEqualTo(val2);
-}
-
 test "Expectation.isError" {
     const ErrUnion = error{
         someErr,
@@ -230,11 +223,8 @@ test "Expectation.isError" {
     try expect(ErrUnion.someErr).isError(ErrUnion.someErr);
 }
 
-test "Expectation.isNotError" {
-    const ErrUnion = error{
-        someErr,
-        someOtherErr,
-    };
-
-    try expect(ErrUnion.someErr).isNotError(ErrUnion.someOtherErr);
+test {
+    _ = @import("functions.zig");
+    _ = @import("meta_functions.zig");
+    _ = @import("checkers.zig");
 }
