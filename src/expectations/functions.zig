@@ -61,7 +61,7 @@ pub fn SomeExpectation(comptime T: type) type {
         ptr: SelfPtr,
         expectFn: *const fn (SelfPtr, *ExpectationState(T)) anyerror!void,
 
-        pub inline fn init(ptr: anytype) SomeExpectation(T) {
+        pub fn init(ptr: anytype) SomeExpectation(T) {
             const P = @TypeOf(ptr);
             const ptr_info = @typeInfo(P);
 

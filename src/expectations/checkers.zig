@@ -49,7 +49,7 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
 
 // std.meta.eql
 
-pub inline fn unionEql(a: anytype, b: @TypeOf(a), info: std.builtin.Type.Union) bool {
+pub fn unionEql(a: anytype, b: @TypeOf(a), info: std.builtin.Type.Union) bool {
     const T = @TypeOf(a);
     const a_info = @typeInfo(T);
     if (a_info != .Union)
@@ -74,7 +74,7 @@ pub inline fn unionEql(a: anytype, b: @TypeOf(a), info: std.builtin.Type.Union) 
     @compileError("cannot compare untagged union type " ++ @typeName(T));
 }
 
-pub inline fn errorUnionEql(a: anytype, b: @TypeOf(a)) bool {
+pub fn errorUnionEql(a: anytype, b: @TypeOf(a)) bool {
     const info = @typeInfo(@TypeOf(a));
     if (info != .ErrorUnion)
         @compileError("optionalEql only works for optionals");
@@ -93,7 +93,7 @@ pub inline fn errorUnionEql(a: anytype, b: @TypeOf(a)) bool {
     return deepEquals(a_inner, b_inner);
 }
 
-pub inline fn optionalEql(maybe_a: anytype, maybe_b: @TypeOf(maybe_a)) bool {
+pub fn optionalEql(maybe_a: anytype, maybe_b: @TypeOf(maybe_a)) bool {
     const info = @typeInfo(@TypeOf(maybe_a));
     if (info != .Optional)
         @compileError("optionalEql only works for optionals");
@@ -113,7 +113,7 @@ pub inline fn optionalEql(maybe_a: anytype, maybe_b: @TypeOf(maybe_a)) bool {
     }
 }
 
-pub inline fn structEql(a: anytype, b: @TypeOf(a)) bool {
+pub fn structEql(a: anytype, b: @TypeOf(a)) bool {
     const info = @typeInfo(@TypeOf(a));
     if (info != .Struct) @compileError("structEql is only supported for structs");
 
@@ -126,7 +126,7 @@ pub inline fn structEql(a: anytype, b: @TypeOf(a)) bool {
     return true;
 }
 
-pub inline fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool {
+pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool {
     const T = @TypeOf(a);
     const info = @typeInfo(T);
     if (info != .Pointer) @compileError("pointerEql is only supported for pointer");
@@ -186,7 +186,7 @@ pub inline fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointe
     }
 }
 
-pub inline fn floatEql(a: anytype, b: @TypeOf(a)) bool {
+pub fn floatEql(a: anytype, b: @TypeOf(a)) bool {
     const math = @import("std").math;
 
     const T = @TypeOf(a);
