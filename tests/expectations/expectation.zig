@@ -5,7 +5,7 @@ const expect = exp.expect;
 const expectAll = exp.expectAll;
 const parameterizedTest = ztest.parameterizedTest;
 
-const utils = @import("../tests.zig").utils;
+const util = @import("../tests.zig").util;
 
 test "expect all runtime types" {
     const Errors = error{ someErr, someOtherErr };
@@ -17,7 +17,7 @@ test "expect all runtime types" {
             const state = expect(in);
             const T = @TypeOf(state);
 
-            utils.nukeStack(1024);
+            util.nukeStack(1024);
 
             try expect(state).has(stateUnchanged(T));
         }
@@ -50,7 +50,7 @@ test "expect all comptime types" {
             const state = expect(in);
             const T = @TypeOf(state);
 
-            utils.nukeComptimeStack(1024);
+            util.nukeComptimeStack(1024);
 
             try expect(state).has(stateUnchanged(T));
         }

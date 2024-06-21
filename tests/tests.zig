@@ -1,4 +1,4 @@
-pub const utils = @import("utils/utils.zig");
+pub const util = @import("util/util.zig");
 
 test {
     _ = @import("readme/tests.zig");

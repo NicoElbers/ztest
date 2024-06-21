@@ -1,5 +1,6 @@
 const std = @import("std");
 const root = @import("root");
+const util = @import("../util.zig");
 
 pub inline fn isUsingZtestRunner() bool {
     return comptime blk: {

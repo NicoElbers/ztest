@@ -4,8 +4,8 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const utils_mod = b.addModule("utils", .{
-        .root_source_file = b.path("src/util/util.zig"),
+    const utils_mod = b.addModule("util", .{
+        .root_source_file = b.path("src/util.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -15,14 +15,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    ztest_runner_mod.addImport("utils", utils_mod);
 
     const ztest_mod = b.addModule("ztest", .{
         .root_source_file = b.path("src/ztest.zig"),
         .target = target,
         .optimize = optimize,
     });
-    ztest_mod.addImport("utils", utils_mod);
+    ztest_mod.addImport("util", utils_mod);
     ztest_mod.addImport("ztest_runner", ztest_runner_mod);
 
     const ztest_runner_unit_tests = b.addTest(.{
@@ -32,7 +31,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .test_runner = ztest_runner_mod.root_source_file,
     });
-    ztest_runner_unit_tests.root_module.addImport("utils", utils_mod);
+    ztest_runner_unit_tests.root_module.addImport("util", utils_mod);
     const run_ztest_runner_unit_tests = b.addRunArtifact(ztest_runner_unit_tests);
 
     const ztest_unit_tests = b.addTest(.{
@@ -42,7 +41,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .test_runner = ztest_runner_mod.root_source_file,
     });
-    ztest_unit_tests.root_module.addImport("utils", utils_mod);
+    ztest_unit_tests.root_module.addImport("util", utils_mod);
     ztest_unit_tests.root_module.addImport("ztest_runner", ztest_runner_mod);
     const run_ztest_unit_tests = b.addRunArtifact(ztest_unit_tests);
 
@@ -53,7 +52,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .test_runner = ztest_runner_mod.root_source_file,
     });
-    unit_with_runner_tests.root_module.addImport("utils", utils_mod);
+    unit_with_runner_tests.root_module.addImport("util", utils_mod);
     unit_with_runner_tests.root_module.addImport("ztest", ztest_mod);
     const run_unit_with_runner = b.addRunArtifact(unit_with_runner_tests);
 
@@ -63,7 +62,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    unit_without_runner_tests.root_module.addImport("utils", utils_mod);
+    unit_without_runner_tests.root_module.addImport("util", utils_mod);
     unit_without_runner_tests.root_module.addImport("ztest", ztest_mod);
     const run_unit_without_runner = b.addRunArtifact(unit_without_runner_tests);
 
