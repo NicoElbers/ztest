@@ -14,7 +14,7 @@ pub inline fn isUsingZtestRunner() bool {
 }
 
 pub fn setUsingZtest() void {
-    if (!isUsingZtestRunner()) return;
+    std.debug.assert(isUsingZtestRunner());
 
     root.clientUsingZtest = true;
 }
