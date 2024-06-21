@@ -8,21 +8,14 @@ const colors = io.tty;
 const File = std.fs.File;
 const BuiltinTestFn = std.builtin.TestFn;
 
+// ---- Shared state for test to observe ----
 pub const IsZtestRunner = void;
 pub var clientUsingZtest: bool = false;
 
-const RunnerConfig = struct {
-    output_file: File = std.io.getStdOut(),
-};
-var runner_config: RunnerConfig = RunnerConfig{};
 
-pub fn main() !void {
-    std.testing.log_level = .warn;
+pub const test_runner: TestRunner = TestRunner{};
 
-    for (builtin.test_functions) |test_fn| {
-        try runTest(TestType{ .builtin = test_fn });
-    }
-}
+// ---- Types needed to communicate with test runner ----
 
 pub const TestFn = struct {
     const Self = @This();
@@ -57,28 +50,46 @@ pub const TestType = union(enum) {
     }
 };
 
-pub fn runTest(test_type: TestType) !void {
-    const res = test_type.run();
-    const name = test_type.name();
+// ---- Test runner itself ----
 
-    try displayResult(name, res);
-}
+pub const TestRunner = struct {
+    output_file: File = std.io.getStdOut(),
 
-pub fn displayResult(name: []const u8, res: anyerror!void) !void {
-    const ouput_file = runner_config.output_file;
+    const Self = @This();
 
-    const config = colors.detectConfig(runner_config.output_file);
-    const writer = ouput_file.writer();
+    pub fn runTest(self: Self, test_type: TestType) !void {
+        const res = test_type.run();
+        const name = test_type.name();
 
-    try writer.writeAll(name);
+        try self.displayResult(name, res);
+    }
 
-    if (std.meta.isError(res)) {
-        try config.setColor(writer, .red);
-        try writer.writeAll(" not passed\n");
-        try config.setColor(writer, .reset);
-    } else {
-        try config.setColor(writer, .bright_green);
-        try writer.writeAll(" passed\n");
-        try config.setColor(writer, .reset);
+    pub fn displayResult(self: Self, name: []const u8, res: anyerror!void) !void {
+        const ouput_file = self.output_file;
+
+        const config = colors.detectConfig(ouput_file);
+        const writer = ouput_file.writer();
+
+        try writer.writeAll(name);
+
+        if (std.meta.isError(res)) {
+            try config.setColor(writer, .red);
+            try writer.writeAll(" not passed\n");
+            try config.setColor(writer, .reset);
+        } else {
+            try config.setColor(writer, .bright_green);
+            try writer.writeAll(" passed\n");
+            try config.setColor(writer, .reset);
+        }
+    }
+};
+
+// ---- Bare bones main method ----
+
+pub fn main() !void {
+    std.testing.log_level = .warn;
+
+    for (builtin.test_functions) |test_fn| {
+        try test_runner.runTest(TestType{ .builtin = test_fn });
     }
 }
