@@ -2,6 +2,7 @@ const std = @import("std");
 
 const runner = @import("ztest_runner");
 
+pub const utils = @import("utils");
 pub const exp = @import("expectations/core.zig");
 pub const exp_fn = @import("expectations/functions.zig");
 pub const exp_meta_fn = @import("expectations/meta_functions.zig");
