@@ -41,8 +41,8 @@ pub fn parameterizedTest(func: anytype, param_list: anytype) !void {
         }
     }
 
-    inline for (param_list) |tuple_param| {
-        try callAnyFunction(func, tuple_param);
+    inline for (param_list) |param_tuple| {
+        try callAnyFunction(func, param_tuple);
     }
 }
 
