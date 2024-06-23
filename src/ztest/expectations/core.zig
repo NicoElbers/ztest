@@ -3,7 +3,6 @@ const meta = std.meta;
 const colors = std.io.tty;
 
 const ztest = @import("../ztest.zig");
-const runner = @import("ztest_runner");
 
 const exp_fn = @import("functions.zig");
 const exp_meta_fn = @import("meta_functions.zig");

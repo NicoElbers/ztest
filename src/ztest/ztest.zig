@@ -1,7 +1,5 @@
 const std = @import("std");
 
-pub const runner = @import("ztest_runner");
-
 pub const util = @import("util");
 pub const exp = @import("expectations/core.zig");
 pub const exp_fn = @import("expectations/functions.zig");
