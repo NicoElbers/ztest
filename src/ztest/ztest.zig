@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const util = @import("util");
+pub const util = @import("util/core.zig");
 pub const exp = @import("expectations/core.zig");
 pub const exp_fn = @import("expectations/functions.zig");
 pub const exp_meta_fn = @import("expectations/meta_functions.zig");
