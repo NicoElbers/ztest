@@ -1,16 +1,16 @@
 const std = @import("std");
-const root = @import("root");
 const util = @import("../util.zig");
+
+const runner = util.RunnerInfo;
 
 pub fn runTest(
     name: []const u8,
     comptime func: anytype,
     args: anytype,
 ) !void {
+    std.debug.assert(util.isUsingZtestRunner);
 
-    const test_runner = root.test_runner;
-
-    try test_runner.runTest(root.TestType{ .parameterized = root.TestFn{
+    try runner.test_runner.runTest(runner.TestType{ .parameterized = runner.TestFn{
         .name = name,
         .wrapped_func = wrap(func, @TypeOf(args)),
         .arg = &args,

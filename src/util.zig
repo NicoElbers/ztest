@@ -7,3 +7,4 @@ pub const callAnyFunction = parameterized_test.callAnyFunction;
 pub const runner_com = @import("util/runner_communication.zig");
 pub const isUsingZtestRunner = runner_com.isUsingZtestRunner();
 pub const setUsingZtest = runner_com.setUsingZtest;
+pub const RunnerInfo = runner_com.RunnerInfo;

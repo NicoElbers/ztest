@@ -19,3 +19,17 @@ pub fn setUsingZtest() void {
 
     root.clientUsingZtest = true;
 }
+
+pub const RunnerInfo = blk: {
+    if (!util.isUsingZtestRunner)
+        break :blk struct {};
+
+    break :blk struct {
+        pub const TestFn = root.TestFn;
+        pub const BuiltinTestFn = root.BuiltinTestFn;
+        pub const TestType = root.TestType;
+        pub const TestRunner = root.TestRunner;
+
+        pub const test_runner = root.test_runner;
+    };
+};
