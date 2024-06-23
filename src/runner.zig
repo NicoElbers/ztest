@@ -22,11 +22,11 @@ pub const TestFn = struct {
     const Self = @This();
 
     name: []const u8,
-    func: *const fn (*const anyopaque) anyerror!void,
+    wrapped_func: *const fn (*const anyopaque) anyerror!void,
     arg: *const anyopaque,
 
     pub fn run(self: Self) anyerror!void {
-        try self.func(self.arg);
+        try self.wrapped_func(self.arg);
     }
 };
 

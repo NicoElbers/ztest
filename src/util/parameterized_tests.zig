@@ -7,13 +7,12 @@ pub fn runTest(
     comptime func: anytype,
     args: anytype,
 ) !void {
-    const wrapped_fn = wrap(func, @TypeOf(args));
 
     const test_runner = root.test_runner;
 
     try test_runner.runTest(root.TestType{ .parameterized = root.TestFn{
         .name = name,
-        .func = wrapped_fn,
+        .wrapped_func = wrap(func, @TypeOf(args)),
         .arg = &args,
     } });
 }
