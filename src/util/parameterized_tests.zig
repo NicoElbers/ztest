@@ -9,7 +9,9 @@ pub fn runTest(
 ) !void {
     const wrapped_fn = wrap(func, @TypeOf(args));
 
-    try root.runTest(root.TestType{ .testFn = root.TestFn{
+    const test_runner = root.test_runner;
+
+    try test_runner.runTest(root.TestType{ .parameterized = root.TestFn{
         .name = name,
         .func = wrapped_fn,
         .arg = &args,

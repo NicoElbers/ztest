@@ -12,6 +12,7 @@ const BuiltinTestFn = std.builtin.TestFn;
 pub const IsZtestRunner = void;
 pub var clientUsingZtest: bool = false;
 
+pub var current_test_info: TestType = undefined;
 
 pub const test_runner: TestRunner = TestRunner{};
 
@@ -31,20 +32,20 @@ pub const TestFn = struct {
 
 pub const TestType = union(enum) {
     builtin: BuiltinTestFn,
-    testFn: TestFn,
+    parameterized: TestFn,
 
     const Self = @This();
 
     pub fn run(self: Self) !void {
         return switch (self) {
-            .testFn => |tst| tst.run(),
+            .parameterized => |tst| tst.run(),
             .builtin => |tst| tst.func(),
         };
     }
 
     pub fn name(self: Self) []const u8 {
         return switch (self) {
-            .testFn => |tst| tst.name,
+            .parameterized => |tst| tst.name,
             .builtin => |tst| tst.name,
         };
     }
@@ -58,6 +59,9 @@ pub const TestRunner = struct {
     const Self = @This();
 
     pub fn runTest(self: Self, test_type: TestType) !void {
+        // Advertise current test
+        current_test_info = test_type;
+
         const res = test_type.run();
         const name = test_type.name();
 
