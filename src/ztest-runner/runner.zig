@@ -62,27 +62,35 @@ pub const TestRunner = struct {
         // Advertise current test
         current_test_info = test_type;
 
-        const res = test_type.run();
         const name = test_type.name();
+        try self.displayName(name);
 
-        try self.displayResult(name, res);
+        const res = test_type.run();
+        try self.displayResult(res);
     }
 
-    pub fn displayResult(self: Self, name: []const u8, res: anyerror!void) !void {
+    pub fn displayName(self: Self, name: []const u8) !void {
+        const ouput_file = self.output_file;
+
+        const writer = ouput_file.writer();
+
+        try writer.writeAll("\n");
+        try writer.writeAll(name);
+    }
+
+    pub fn displayResult(self: Self, res: anyerror!void) !void {
         const ouput_file = self.output_file;
 
         const config = colors.detectConfig(ouput_file);
         const writer = ouput_file.writer();
 
-        try writer.writeAll(name);
-
         if (std.meta.isError(res)) {
             try config.setColor(writer, .red);
-            try writer.writeAll(" not passed\n");
+            try writer.writeAll(" not passed");
             try config.setColor(writer, .reset);
         } else {
             try config.setColor(writer, .bright_green);
-            try writer.writeAll(" passed\n");
+            try writer.writeAll(" passed");
             try config.setColor(writer, .reset);
         }
     }
