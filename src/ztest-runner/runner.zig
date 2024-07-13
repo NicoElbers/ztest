@@ -5,6 +5,7 @@ const native_os = builtin.os.tag;
 const io = std.io;
 const colors = io.tty;
 
+const Config = std.io.tty.Config;
 const File = std.fs.File;
 const BuiltinTestFn = std.builtin.TestFn;
 
@@ -12,7 +13,7 @@ const BuiltinTestFn = std.builtin.TestFn;
 pub const IsZtestRunner = void;
 pub var clientUsingZtest: bool = false;
 
-pub var current_test_info: TestType = undefined;
+pub var current_test_info: Test = undefined;
 
 pub const test_runner: TestRunner = TestRunner{};
 
@@ -30,24 +31,76 @@ pub const TestFn = struct {
     }
 };
 
-pub const TestType = union(enum) {
-    builtin: BuiltinTestFn,
-    parameterized: TestFn,
+pub const TestType = enum {
+    builtin,
+    parameterized,
+};
 
+pub const Test = struct {
     const Self = @This();
 
-    pub fn run(self: Self) !void {
-        return switch (self) {
-            .parameterized => |tst| tst.run(),
-            .builtin => |tst| tst.func(),
+    typ: TestType,
+    name: []const u8,
+    func: *const fn (*const anyopaque) anyerror!void,
+    args: *const anyopaque,
+
+    pub fn initBuiltin(test_fn: BuiltinTestFn) Self {
+        const func = struct {
+            pub fn wrapper(ptr: *const anyopaque) anyerror!void {
+                // TODO: Comptime assert that BuiltinTestFn.func == *const fn() anyerror!void
+                const func: *const fn () anyerror!void = @ptrCast(@alignCast(ptr));
+                return func();
+            }
+        }.wrapper;
+
+        return Self{
+            .typ = .builtin,
+            .name = test_fn.name,
+            .func = func,
+            .args = test_fn.func,
         };
     }
 
-    pub fn name(self: Self) []const u8 {
-        return switch (self) {
-            .parameterized => |tst| tst.name,
-            .builtin => |tst| tst.name,
+    pub fn run(self: Self) TestRes {
+        const res = self.func(self.args);
+
+        return TestRes{
+            .typ = self.typ,
+            .res = res,
         };
+    }
+};
+
+pub const TestRes = struct {
+    typ: TestType,
+    res: anyerror!void,
+
+    fn displayReturn(self: TestRes, config: Config, writer: anytype) !void {
+        if (std.meta.isError(self.res)) {
+            try config.setColor(writer, .red);
+            try writer.writeAll(" not passed");
+            try config.setColor(writer, .reset);
+        } else {
+            try config.setColor(writer, .bright_green);
+            try writer.writeAll(" passed");
+            try config.setColor(writer, .reset);
+        }
+        try writer.writeAll("\n");
+    }
+
+    pub fn displayResult(self: TestRes, writer: anytype, config: Config) !void {
+        switch (self.typ) {
+            .builtin => try self.displayReturn(config, writer),
+            .parameterized => {
+                if (std.meta.isError(self.res)) {
+                    try self.displayReturn(config, writer);
+                    // TODO: Display the inputs here
+                }
+                // reset line
+                try writer.writeAll("\x1b[G");
+                try writer.writeAll("\x1b[K");
+            },
+        }
     }
 };
 
@@ -58,41 +111,27 @@ pub const TestRunner = struct {
 
     const Self = @This();
 
-    pub fn runTest(self: Self, test_type: TestType) !void {
+    pub fn runTest(self: Self, tst: Test) !void {
         // Advertise current test
-        current_test_info = test_type;
+        current_test_info = tst;
 
-        const name = test_type.name();
-        try self.displayName(name);
+        try self.displayName(tst.name);
 
-        const res = test_type.run();
+        const res = tst.run();
         try self.displayResult(res);
     }
 
     pub fn displayName(self: Self, name: []const u8) !void {
-        const ouput_file = self.output_file;
+        const writer = self.output_file.writer();
 
-        const writer = ouput_file.writer();
-
-        try writer.writeAll("\n");
         try writer.writeAll(name);
     }
 
-    pub fn displayResult(self: Self, res: anyerror!void) !void {
-        const ouput_file = self.output_file;
+    pub fn displayResult(self: Self, res: TestRes) !void {
+        const config = colors.detectConfig(self.output_file);
+        const writer = self.output_file.writer();
 
-        const config = colors.detectConfig(ouput_file);
-        const writer = ouput_file.writer();
-
-        if (std.meta.isError(res)) {
-            try config.setColor(writer, .red);
-            try writer.writeAll(" not passed");
-            try config.setColor(writer, .reset);
-        } else {
-            try config.setColor(writer, .bright_green);
-            try writer.writeAll(" passed");
-            try config.setColor(writer, .reset);
-        }
+        try res.displayResult(writer, config);
     }
 };
 
@@ -102,6 +141,6 @@ pub fn main() !void {
     std.testing.log_level = .warn;
 
     for (builtin.test_functions) |test_fn| {
-        try test_runner.runTest(TestType{ .builtin = test_fn });
+        try test_runner.runTest(Test.initBuiltin(test_fn));
     }
 }

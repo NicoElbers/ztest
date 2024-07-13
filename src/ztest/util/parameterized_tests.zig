@@ -10,20 +10,21 @@ pub fn runTest(
 ) !void {
     std.debug.assert(util.isUsingZtestRunner);
 
-    try runner.test_runner.runTest(runner.TestType{ .parameterized = runner.TestFn{
+    try runner.test_runner.runTest(runner.Test{
+        .typ = .parameterized,
         .name = name,
-        .wrapped_func = wrap(func, @TypeOf(args)),
-        .arg = &args,
-    } });
+        .func = wrap(func, @TypeOf(args)),
+        .args = &args,
+    });
 }
 
 pub fn wrap(comptime func: anytype, comptime ArgsT: type) *const fn (*const anyopaque) anyerror!void {
     return struct {
-        pub fn run(args_ptr: *const anyopaque) !void {
+        pub fn wrapper(args_ptr: *const anyopaque) !void {
             const args: *const ArgsT = @ptrCast(@alignCast(args_ptr));
             try callAnyFunction(func, args.*);
         }
-    }.run;
+    }.wrapper;
 }
 
 pub fn callAnyFunction(comptime func: anytype, args: anytype) !void {

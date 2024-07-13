@@ -26,8 +26,8 @@ pub const RunnerInfo = blk: {
 
     break :blk struct {
         pub const TestFn = root.TestFn;
-        pub const BuiltinTestFn = root.BuiltinTestFn;
         pub const TestType = root.TestType;
+        pub const Test = root.Test;
         pub const TestRunner = root.TestRunner;
 
         pub const test_runner = root.test_runner;
