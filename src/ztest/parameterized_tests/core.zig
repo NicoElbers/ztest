@@ -6,6 +6,7 @@ const util = ztest.util;
 pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     verifyArguments(func, param_list);
 
+    var any_failed = false;
     inline for (param_list) |param_tuple| {
         if (util.isUsingZtestRunner) {
             // const msg = std.fmt.allocPrint(ztest.allocator, "Parameterized test {any}", .{param_tuple}) catch blk: {
@@ -14,14 +15,20 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
             const msg = try std.fmt.allocPrint(ztest.allocator, "Parameterized test", .{});
             defer ztest.allocator.free(msg);
 
-            try util.runTest(
+            util.runTest(
                 msg,
                 func,
                 param_tuple,
-            );
+            ) catch {
+                any_failed = true;
+            };
         } else {
             try util.callAnyFunction(func, param_tuple);
         }
+    }
+
+    if (any_failed) {
+        return error.SomeTestsFailed;
     }
 }
 
