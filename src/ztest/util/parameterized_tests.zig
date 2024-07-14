@@ -11,7 +11,9 @@ pub fn runTest(
 ) !void {
     std.debug.assert(util.isUsingZtestRunner);
 
-    try runner.test_runner.runTest(runner.Test{
+    const our_runner = runner.TestRunner.initDefault();
+
+    try our_runner.runTest(runner.Test{
         .typ = .parameterized,
         .name = name,
         .func = wrap(func, @TypeOf(args)),

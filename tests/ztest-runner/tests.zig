@@ -6,7 +6,6 @@ test {
     // on the shared state
     if (!ztest.util.isUsingZtestRunner) return;
 
-    _ = @import("runner_contact.zig");
     _ = @import("failing.zig");
     _ = @import("passing.zig");
 }

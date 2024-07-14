@@ -14,35 +14,7 @@ const BuiltinTestFn = std.builtin.TestFn;
 // TODO: Make this more unique with underscores and shit
 pub const IsZtestRunner = void;
 
-// ---- Shared state for test to observe ----
-// TODO: Try to eliminate all shared state
-// FIXME: Remove
-pub var clientUsingZtest: bool = false;
-
-// FIXME: Remove
-pub var current_test_info: Test = undefined;
-
-// TODO: Do a bit of digging if this is truly neccesary
-// - Idea: What if parameterized tests just made their own runner? No need to 
-//         interface with this then. 
-//         1) what about config? Currently don't have any, bad reason
-//         2) Does that work with proper line counting? Look into this
-pub const test_runner: TestRunner = TestRunner{};
-
 // ---- Types needed to communicate with test runner ----
-
-// FIXME: Remove
-pub const TestFn = struct {
-    const Self = @This();
-
-    name: []const u8,
-    wrapped_func: *const fn (*const anyopaque) anyerror!void,
-    arg: *const anyopaque,
-
-    pub fn run(self: Self) anyerror!void {
-        try self.wrapped_func(self.arg);
-    }
-};
 
 pub const TestType = enum {
     builtin,
@@ -156,15 +128,23 @@ pub const TestRunner = struct {
     var lines_moved: u16 = 0;
 
     // TODO: Create some "output" struct with a writer and color config combined
-    output_file: File = std.io.getStdOut(),
-    alloc: Allocator = std.testing.allocator,
+    output_file: File,
+    alloc: Allocator,
 
     const Self = @This();
 
-    pub fn runTest(self: Self, tst: Test) !void {
-        // Advertise current test
-        current_test_info = tst;
+    pub fn initDefault() TestRunner {
+        const output_file = std.io.getStdOut();
+        const alloc = std.testing.allocator;
 
+        return TestRunner{
+            .output_file = output_file,
+            .alloc = alloc,
+            .printer = printer,
+        };
+    }
+
+    pub fn runTest(self: Self, tst: Test) !void {
         try self.displayName(tst);
 
         const res = tst.run();
@@ -202,7 +182,9 @@ pub const TestRunner = struct {
 pub fn main() !void {
     std.testing.log_level = .warn;
 
+    const runner = TestRunner.initDefault();
+
     for (builtin.test_functions) |test_fn| {
-        test_runner.runTest(Test.initBuiltin(test_fn)) catch {};
+        runner.runTest(Test.initBuiltin(test_fn)) catch {};
     }
 }
