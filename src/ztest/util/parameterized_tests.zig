@@ -1,3 +1,4 @@
+// FIXME: Just move this into the main parameterized test folder
 const std = @import("std");
 const util = @import("../ztest.zig").util;
 
@@ -27,6 +28,7 @@ pub fn wrap(comptime func: anytype, comptime ArgsT: type) *const fn (*const anyo
     }.wrapper;
 }
 
+// TODO: Put this in an actual util module? file? idk.
 pub fn callAnyFunction(comptime func: anytype, args: anytype) !void {
     const info = @typeInfo(@TypeOf(func));
     if (info != .Fn)

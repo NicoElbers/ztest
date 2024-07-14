@@ -1,3 +1,4 @@
+// FIXME: most of this is useless
 pub fn DummyGen(comptime T: type) type {
     return struct { val: T };
 }

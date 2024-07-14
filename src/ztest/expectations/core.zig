@@ -24,6 +24,8 @@ pub const ExpectationError = error{
     NegativeExpectationFailed,
 };
 
+// TODO: Seriously consider whether I need expectation state, if I can go without
+// it, it will make extensions easier and remove a lot of type hell
 pub fn ExpectationState(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -57,7 +59,7 @@ pub fn ExpectationState(comptime T: type) type {
             }
         }
 
-        // TODO: Completely rework this to give actually good error messages
+        // FIXME: Completely rework this to give actually good error messages
         fn handleError(self: *ExpectationState(T), err: anyerror) anyerror {
             self.err = err;
 
@@ -166,6 +168,7 @@ pub fn ExpectationState(comptime T: type) type {
     };
 }
 
+// TODO: Research whether this inline can somehow be removed
 // NOTE: This is explicitly inlined to be able to return a pointer to the stack
 // this is needed to make ExpectationState mutable in chaining calls
 pub inline fn expect(val: anytype) *ExpectationState(@TypeOf(val)) {
@@ -191,6 +194,8 @@ pub fn expectAll(val: anytype, expectations: []const SomeExpectation(@TypeOf(val
     }
 }
 
+// FIXME: Remove tests from here, they serve no purpose
+// TEST: instead create more minimal tests that show off the specific function
 test expectAll {
     try expectAll(@as(u32, 64), &.{
         exp_fn.isEqualTo(@as(u32, 64)),

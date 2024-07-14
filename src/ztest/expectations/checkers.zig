@@ -1,5 +1,7 @@
 const std = @import("std");
 
+// TODO: Create shallowEquals (maybe just std.meta.eql)
+// TEST: In general test this more
 pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
     const a_info = @typeInfo(@TypeOf(a));
     const b_info = @typeInfo(@TypeOf(b));
@@ -12,6 +14,7 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .Undefined,
         => true, // Only one value
 
+        // TODO: Verify
         .Enum,
         => true, // Doesn't compile otherwise
 
@@ -20,21 +23,28 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .Bool,
         => a == b, // Simple equality
 
+        // TEST: Different error sets
         .ErrorSet,
+        // TEST: Capitalization
         .EnumLiteral,
+        // TEST: types with different subtypes
         .Type,
         => a == b, // Simple comptime equality
 
         .Fn,
+        // TODO: Maybe compile error, only allow shallow eql
+        // Maybe add a special eql that allows this
         .Opaque,
         .Frame,
         .AnyFrame,
         => a == b, // pointer equality
 
+        // TEST: Look at std tests
         .Float,
         .ComptimeFloat,
         => floatEql(a, b),
 
+        // TEST: I need edge cases for both of these
         .Array,
         .Vector,
         => deepEquals(&a, &b), //Make use of pointerEql
@@ -134,8 +144,10 @@ pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool
 
     const Child = info.Pointer.child;
 
+    // TODO: Maybe compile error, only allow shallow eql
+    // Maybe add a special eql that allows this
     if (Child == anyopaque)
-        return a == b; // TODO: fix
+        return a == b;
 
     const sentinel: ?Child = blk: {
         if (info.Pointer.sentinel) |s| {

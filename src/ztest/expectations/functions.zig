@@ -1,48 +1,4 @@
-// pub fn Template(comptime T: type) type {
-//     return struct {
-//         const Self = @This();
-//
-//         pub inline fn bind() SomeExpectation(T) {
-//             return SomeExpectation(T).init(&Self{});
-//         }
-//
-//         pub fn expect(self: *const Self, state: *ExpectationState(T)) !void {
-//
-//         }
-//
-//         pub fn make(self: *const Self) SomeExpectation(T) {
-//             return SomeExpectation(T).init(self);
-//         }
-//     };
-// }
-
-//switch (@typeInfo(T)) {
-//     .Type,
-//     .Void,
-//     .Bool,
-//     .NoReturn,
-//     .Int,
-//     .Float,
-//     .Pointer,
-//     .Array,
-//     .Struct,
-//     .ComptimeFloat,
-//     .ComptimeInt,
-//     .Undefined,
-//     .Null,
-//     .Optional,
-//     .ErrorUnion,
-//     .ErrorSet,
-//     .Enum,
-//     .Union,
-//     .Fn,
-//     .Opaque,
-//     .Frame,
-//     .AnyFrame,
-//     .Vector,
-//     .EnumLiteral,
-//      => {},
-// }
+// TEST: Create at least 1 simple test to show off the expectation
 
 const std = @import("std");
 
@@ -191,6 +147,7 @@ pub fn IsValue(comptime T: type) type {
     };
 }
 
+// TODO: Make isShallowEqualTo
 pub inline fn isEqualTo(expected: anytype) SomeExpectation(@TypeOf(expected)) {
     return IsEqualTo(@TypeOf(expected)).bind(expected);
 }
@@ -213,9 +170,6 @@ pub fn IsEqualTo(comptime T: type) type {
         pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
             state.expected = self.val;
 
-            // TODO: See if I can make std.meta.eql better/ more explicit
-            // if (!std.meta.eql(self.val, state.val))
-            //     return ExpectationError.NotEqual;
             if (!checker.deepEquals(self.val, state.val))
                 return ExpectationError.NotEqual;
         }
@@ -241,14 +195,11 @@ pub fn IsBetween(comptime T: type) type {
         .ComptimeInt,
         => {},
 
-        .Optional,
-        .ErrorUnion,
-        => @compileError("TODO: make " ++ @typeName(@TypeOf(@This())) ++ " work"),
-
         .Float,
         .ComptimeFloat,
         => @compileError("Use IsBetweenF for floats instead"),
         // TODO: Make IsBetweenF
+        // why? Just extend the config a little maybe not even
 
         else => @compileError("Type " ++ @typeName(T) ++ " is not supported"),
     }

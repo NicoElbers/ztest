@@ -23,6 +23,7 @@ test "expect all runtime types" {
         }
     };
 
+    // TODO: Annotate and verify the types I'm testing
     try parameterizedTest(inner.unchanged, .{
         .{true},
         .{@as(u8, 123)},
@@ -56,6 +57,7 @@ test "expect all comptime types" {
         }
     };
 
+    // TODO: Annotate and verify the types I'm testing
     try parameterizedTest(inner.unchanged, .{
         .{@as(type, u8)},
         .{void},

@@ -1,3 +1,9 @@
+// FIXME: See if there is any way I can remove the need for inline
+// I really hate it
+
+// TODO: Think if there are more advanced uses, maybe mocks or interface extensions
+// although I don't know if those would be at all useful or feasable
+
 const ztest = @import("ztest");
 
 const ExpectationState = ztest.ExpectationState;

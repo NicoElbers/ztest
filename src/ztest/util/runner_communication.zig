@@ -14,6 +14,7 @@ pub inline fn isUsingZtestRunner() bool {
     };
 }
 
+// FIXME: useless
 pub fn setUsingZtest() void {
     std.debug.assert(isUsingZtestRunner());
 

@@ -81,6 +81,7 @@ test "isEqualTo equal" {
 
     try expect(@intFromPtr(first)).not().isEqualTo(@intFromPtr(second));
 
+    // TODO: Annotate and verify the types I'm testing
     try parameterizedTest(equality, .{
         .{ @as(Errors, Errors.someErr), @as(Errors, Errors.someErr) },
         .{ @as(Errors, Errors.someErr), @as(OtherErrors, OtherErrors.someErr) },
@@ -99,6 +100,7 @@ test "isEqualTo equal comptime" {
         }
     }.inner;
 
+    // TODO: Annotate and verify the types I'm testing
     try parameterizedTest(equality, .{
         .{ void, void },
         .{ noreturn, noreturn },
@@ -120,6 +122,7 @@ test "isEqualTo not equal" {
         }
     }.inner;
 
+    // TODO: Annotate and verify the types I'm testing
     try parameterizedTest(equality, .{
         // .{ Errors, OtherErrors },
         .{ true, false },
@@ -136,6 +139,7 @@ test "isEqualTo not equal comptime" {
         }
     }.inner;
 
+    // TODO: Annotate and verify the types I'm testing
     try parameterizedTest(equality, .{
         .{ @as(Errors, Errors.someErr), @as(Errors, Errors.someOtherErr) },
         .{ true, false },

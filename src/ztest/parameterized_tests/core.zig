@@ -100,6 +100,8 @@ pub fn extractStructFieldTypes(fields: []const std.builtin.Type.StructField) []t
     return &field_type_list;
 }
 
+// FIXME: Remove tests from here, they serve no purpose
+// TEST: instead create more minimal tests that show off the specific function
 fn testFunc(first: u32, second: u64) void {
     _ = first + second;
 }

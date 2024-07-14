@@ -11,16 +11,27 @@ const Allocator = std.mem.Allocator;
 
 const BuiltinTestFn = std.builtin.TestFn;
 
-// ---- Shared state for test to observe ----
+// TODO: Make this more unique with underscores and shit
 pub const IsZtestRunner = void;
+
+// ---- Shared state for test to observe ----
+// TODO: Try to eliminate all shared state
+// FIXME: Remove
 pub var clientUsingZtest: bool = false;
 
+// FIXME: Remove
 pub var current_test_info: Test = undefined;
 
+// TODO: Do a bit of digging if this is truly neccesary
+// - Idea: What if parameterized tests just made their own runner? No need to 
+//         interface with this then. 
+//         1) what about config? Currently don't have any, bad reason
+//         2) Does that work with proper line counting? Look into this
 pub const test_runner: TestRunner = TestRunner{};
 
 // ---- Types needed to communicate with test runner ----
 
+// FIXME: Remove
 pub const TestFn = struct {
     const Self = @This();
 
@@ -73,8 +84,11 @@ pub const Test = struct {
     }
 };
 
+// TODO: Rename to TestResult
 pub const TestRes = struct {
+    // TODO: Rename to type?
     typ: TestType,
+    // TODO: Rename to smth better
     res: anyerror!void,
 
     fn displayReturn(self: TestRes, config: Config, writer: anytype) !void {
@@ -90,10 +104,12 @@ pub const TestRes = struct {
     }
 
     /// Returns true if we displayed something
+    // FIXME: Don't take in TestRunner
     pub fn displayResult(self: TestRes, runner: TestRunner, writer: anytype, config: Config) !void {
         switch (self.typ) {
             .builtin => {
                 // Restore saved cursor location
+                // FIXME: Factor this out into less magic numbers
                 const reset_str = try std.fmt.allocPrint(
                     runner.alloc,
                     "\x1b[{d}F\x1b[u",
@@ -104,6 +120,8 @@ pub const TestRes = struct {
 
                 try self.displayReturn(config, writer);
 
+                // FIXME: Factor this out into less magic numbers
+                const reset_str = try std.fmt.allocPrint(
                 const replace_str = try std.fmt.allocPrint(
                     runner.alloc,
                     "\x1b[{d}E",
@@ -123,6 +141,7 @@ pub const TestRes = struct {
                     return;
                 }
                 // reset line
+                // FIXME: Factor this out into less magic numbers
                 try writer.writeAll("\x1b[G");
                 try writer.writeAll("\x1b[K");
             },
@@ -133,8 +152,10 @@ pub const TestRes = struct {
 // ---- Test runner itself ----
 
 pub const TestRunner = struct {
+    // FIXME: Don't use global state
     var lines_moved: u16 = 0;
 
+    // TODO: Create some "output" struct with a writer and color config combined
     output_file: File = std.io.getStdOut(),
     alloc: Allocator = std.testing.allocator,
 
@@ -149,7 +170,7 @@ pub const TestRunner = struct {
         const res = tst.run();
         try self.displayResult(res);
 
-        // Show the error to the party calling the test
+        // Return the error to the party calling the test
         // TODO: Change this into ?ErrorMessage or something
         return res.res;
     }
@@ -159,6 +180,7 @@ pub const TestRunner = struct {
 
         try writer.writeAll(tst.name);
 
+        // FIXME: Factor this out into less magic numbers
         if (tst.typ == .builtin) {
             // Save cursor position
             try writer.writeAll("\x1b[s");
