@@ -4,6 +4,8 @@ const util = @import("../ztest.zig").util;
 
 const runner = util.RunnerInfo;
 
+// TODO: Change this to take in multiple tests, and run them all under the same runner
+// or maybe easier, take in a list of args and run a test for each on the same runner
 pub fn runTest(
     name: []const u8,
     comptime func: anytype,
