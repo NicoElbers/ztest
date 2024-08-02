@@ -24,7 +24,6 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         => a == b, // Simple equality
 
         .ErrorSet,
-        // TEST: Capitalization
         .EnumLiteral,
         // TEST: types with different subtypes
         .Type,

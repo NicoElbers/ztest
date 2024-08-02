@@ -24,3 +24,17 @@ test "Same errors in a set" {
 
     try expect(a).isEqualTo(b);
 }
+
+test "Enum literal Capitalization" {
+    const a = .SomeEnum;
+    const b = .someenum;
+
+    try comptime expect(a).not().isEqualTo(b);
+}
+
+test "Enum literal Same" {
+    const a = .SomeEnum;
+    const b = .SomeEnum;
+
+    try comptime expect(a).isEqualTo(b);
+}
