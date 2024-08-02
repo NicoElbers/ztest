@@ -13,7 +13,7 @@ pub fn runTest(
 ) !void {
     std.debug.assert(util.isUsingZtestRunner);
 
-    const our_runner = runner.TestRunner.initDefault();
+    var our_runner = runner.TestRunner.initDefault();
 
     try our_runner.runTest(runner.Test{
         .typ = .parameterized,

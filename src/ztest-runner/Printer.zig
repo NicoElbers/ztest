@@ -31,6 +31,12 @@ pub fn init(output_file: File, alloc: Allocator) Self {
     };
 }
 
+pub fn printFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
+    const txt = try std.fmt.allocPrint(self.alloc, fmt, args);
+    defer self.alloc.free(txt);
+    return self.writeAll(txt);
+}
+
 pub fn writeAll(self: Self, bytes: []const u8) WriterError!void {
     return self.writer.writeAll(bytes);
 }
