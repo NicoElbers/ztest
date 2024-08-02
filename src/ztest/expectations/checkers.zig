@@ -23,7 +23,6 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .Bool,
         => a == b, // Simple equality
 
-        // TEST: Different error sets
         .ErrorSet,
         // TEST: Capitalization
         .EnumLiteral,
