@@ -1,11 +1,15 @@
+// TODO: Structure this file out over multiple files so that everything is more ledgeable
+
 const std = @import("std");
 const builtin = @import("builtin");
 const native_os = builtin.os.tag;
 
 const io = std.io;
 const colors = io.tty;
+const windows = std.os.windows;
 
-const Config = std.io.tty.Config;
+const Printer = @import("Printer.zig");
+const Color = std.io.tty.Color;
 const File = std.fs.File;
 const Allocator = std.mem.Allocator;
 
@@ -14,7 +18,7 @@ const BuiltinTestFn = std.builtin.TestFn;
 // TODO: Make this more unique with underscores and shit
 pub const IsZtestRunner = void;
 
-// ---- Types needed to communicate with test runner ----
+// ---- Types exposed to ztest ----
 
 pub const TestType = enum {
     builtin,
@@ -51,99 +55,32 @@ pub const Test = struct {
 
         return TestRes{
             .typ = self.typ,
-            .res = res,
+            .raw_result = res,
         };
     }
 };
 
-// TODO: Rename to TestResult
-pub const TestRes = struct {
-    // TODO: Rename to type?
-    typ: TestType,
-    // TODO: Rename to smth better
-    res: anyerror!void,
-
-    fn displayReturn(self: TestRes, config: Config, writer: anytype) !void {
-        if (std.meta.isError(self.res)) {
-            try config.setColor(writer, .red);
-            try writer.writeAll(" not passed");
-            try config.setColor(writer, .reset);
-        } else {
-            try config.setColor(writer, .bright_green);
-            try writer.writeAll(" passed");
-            try config.setColor(writer, .reset);
-        }
-    }
-
-    /// Returns true if we displayed something
-    // FIXME: Don't take in TestRunner
-    pub fn displayResult(self: TestRes, runner: TestRunner, writer: anytype, config: Config) !void {
-        switch (self.typ) {
-            .builtin => {
-                // Restore saved cursor location
-                // FIXME: Factor this out into less magic numbers
-                const reset_str = try std.fmt.allocPrint(
-                    runner.alloc,
-                    "\x1b[{d}F\x1b[u",
-                    .{TestRunner.lines_moved},
-                );
-                defer runner.alloc.free(reset_str);
-                try writer.writeAll(reset_str);
-
-                try self.displayReturn(config, writer);
-
-                // FIXME: Factor this out into less magic numbers
-                const reset_str = try std.fmt.allocPrint(
-                const replace_str = try std.fmt.allocPrint(
-                    runner.alloc,
-                    "\x1b[{d}E",
-                    .{TestRunner.lines_moved},
-                );
-                defer runner.alloc.free(replace_str);
-                try writer.writeAll(replace_str);
-
-                TestRunner.lines_moved = 0;
-            },
-            .parameterized => {
-                if (std.meta.isError(self.res)) {
-                    // TODO: Display the inputs here
-                    try self.displayReturn(config, writer);
-                    try writer.writeAll("\n");
-                    TestRunner.lines_moved += 1;
-                    return;
-                }
-                // reset line
-                // FIXME: Factor this out into less magic numbers
-                try writer.writeAll("\x1b[G");
-                try writer.writeAll("\x1b[K");
-            },
-        }
-    }
-};
-
-// ---- Test runner itself ----
-
 pub const TestRunner = struct {
     // FIXME: Don't use global state
-    var lines_moved: u16 = 0;
+    var lines_moved: u15 = 0;
 
-    // TODO: Create some "output" struct with a writer and color config combined
-    output_file: File,
     alloc: Allocator,
+    printer: Printer,
 
     const Self = @This();
 
     pub fn initDefault() TestRunner {
         const output_file = std.io.getStdOut();
         const alloc = std.testing.allocator;
+        const printer = Printer.init(output_file, alloc);
 
         return TestRunner{
-            .output_file = output_file,
             .alloc = alloc,
             .printer = printer,
         };
     }
 
+    // FIXME: These 3 functions are a mess, make it better
     pub fn runTest(self: Self, tst: Test) !void {
         try self.displayName(tst);
 
@@ -152,28 +89,76 @@ pub const TestRunner = struct {
 
         // Return the error to the party calling the test
         // TODO: Change this into ?ErrorMessage or something
-        return res.res;
+        // FIXME: Make it more obvious that this is the test result and not an error.
+        return res.raw_result;
     }
 
     pub fn displayName(self: Self, tst: Test) !void {
-        const writer = self.output_file.writer();
+        try self.printer.writeAll(tst.name);
 
-        try writer.writeAll(tst.name);
-
-        // FIXME: Factor this out into less magic numbers
         if (tst.typ == .builtin) {
-            // Save cursor position
-            try writer.writeAll("\x1b[s");
-            try writer.writeAll("\n");
+            try self.printer.saveCursorPosition();
+            try self.printer.moveDownLine(1);
             TestRunner.lines_moved = 1;
         }
     }
 
     pub fn displayResult(self: Self, res: TestRes) !void {
-        const config = colors.detectConfig(self.output_file);
-        const writer = self.output_file.writer();
+        try res.displayResult(self.printer);
+    }
+};
 
-        try res.displayResult(self, writer, config);
+// ---- Internal representation for results ----
+
+// TODO: Rename to TestResult
+pub const TestRes = struct {
+    // TODO: Rename to type?
+    typ: TestType,
+    // TODO: Rename to smth better
+    raw_result: anyerror!void,
+
+    fn displayReturn(self: TestRes, printer: Printer) !void {
+        if (std.meta.isError(self.raw_result)) {
+            try printer.setColor(.red);
+            try printer.writeAll(" not passed");
+            try printer.setColor(.reset);
+        } else {
+            try printer.setColor(.bright_green);
+            try printer.writeAll(" passed");
+            try printer.setColor(.reset);
+        }
+    }
+
+    pub fn displayResult(self: TestRes, printer: Printer) !void {
+        // FIXME: Don't use global state
+        switch (self.typ) {
+            .builtin => {
+                // Restore saved cursor location
+                try printer.moveUpLine(TestRunner.lines_moved);
+                try printer.loadCursorPosition();
+
+                try self.displayReturn(printer);
+
+                try printer.moveToStartOfLine();
+                try printer.moveDownLine(TestRunner.lines_moved);
+
+                TestRunner.lines_moved = 0;
+            },
+            // TODO: When a parameterized test passes I want a number after the builtin test name
+            .parameterized => {
+                if (std.meta.isError(self.raw_result)) {
+                    // TODO: Display the inputs here
+                    try self.displayReturn(printer);
+
+                    try printer.moveToStartOfLine();
+                    try printer.moveDownLine(TestRunner.lines_moved);
+
+                    TestRunner.lines_moved += 1;
+                    return;
+                }
+                try printer.clearLine();
+            },
+        }
     }
 };
 
