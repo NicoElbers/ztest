@@ -66,6 +66,7 @@ pub const TestRunner = struct {
 
     alloc: Allocator,
     printer: Printer,
+    error_count: usize = 0,
 
     const Self = @This();
 
@@ -81,7 +82,7 @@ pub const TestRunner = struct {
     }
 
     // FIXME: These 3 functions are a mess, make it better
-    pub fn runTest(self: Self, tst: Test) !void {
+    pub fn runTest(self: *Self, tst: Test) !void {
         try self.displayName(tst);
 
         const res = tst.run();
@@ -103,8 +104,57 @@ pub const TestRunner = struct {
         }
     }
 
-    pub fn displayResult(self: Self, res: TestRes) !void {
-        try res.displayResult(self.printer);
+    pub fn displayResult(self: *Self, res: TestRes) !void {
+        switch (res.typ) {
+            .builtin => {
+                // Restore saved cursor location
+                try self.printer.moveUpLine(TestRunner.lines_moved);
+                try self.printer.loadCursorPosition();
+
+                try self.displayReturn(res);
+
+                try self.printer.moveToStartOfLine();
+                try self.printer.moveDownLine(TestRunner.lines_moved);
+
+                TestRunner.lines_moved = 0;
+            },
+            // TODO: When a parameterized test passes I want a number after the builtin test name
+            .parameterized => {
+                if (std.meta.isError(res.raw_result)) {
+                    // TODO: Display the inputs here
+                    try self.displayReturn(res);
+
+                    try self.printer.moveToStartOfLine();
+                    try self.printer.moveDownLine(TestRunner.lines_moved);
+
+                    TestRunner.lines_moved += 1;
+                    return;
+                }
+                try self.printer.clearLine();
+            },
+        }
+    }
+
+    fn displayReturn(self: *Self, res: TestRes) !void {
+        if (std.meta.isError(res.raw_result)) {
+            self.error_count += 1;
+            try self.printer.setColor(.red);
+            try self.printer.writeAll(" not passed");
+            try self.printer.setColor(.reset);
+        } else {
+            try self.printer.setColor(.bright_green);
+            try self.printer.writeAll(" passed");
+            try self.printer.setColor(.reset);
+        }
+    }
+
+    pub fn displayErrorCount(self: Self) !void {
+        if (self.error_count == 0) return;
+        try self.printer.writeAll("Failed ");
+        try self.printer.setColor(.red);
+        try self.printer.printFmt("{d}", .{self.error_count});
+        try self.printer.setColor(.reset);
+        try self.printer.writeAll(" tests\n");
     }
 };
 
@@ -116,50 +166,6 @@ pub const TestRes = struct {
     typ: TestType,
     // TODO: Rename to smth better
     raw_result: anyerror!void,
-
-    fn displayReturn(self: TestRes, printer: Printer) !void {
-        if (std.meta.isError(self.raw_result)) {
-            try printer.setColor(.red);
-            try printer.writeAll(" not passed");
-            try printer.setColor(.reset);
-        } else {
-            try printer.setColor(.bright_green);
-            try printer.writeAll(" passed");
-            try printer.setColor(.reset);
-        }
-    }
-
-    pub fn displayResult(self: TestRes, printer: Printer) !void {
-        // FIXME: Don't use global state
-        switch (self.typ) {
-            .builtin => {
-                // Restore saved cursor location
-                try printer.moveUpLine(TestRunner.lines_moved);
-                try printer.loadCursorPosition();
-
-                try self.displayReturn(printer);
-
-                try printer.moveToStartOfLine();
-                try printer.moveDownLine(TestRunner.lines_moved);
-
-                TestRunner.lines_moved = 0;
-            },
-            // TODO: When a parameterized test passes I want a number after the builtin test name
-            .parameterized => {
-                if (std.meta.isError(self.raw_result)) {
-                    // TODO: Display the inputs here
-                    try self.displayReturn(printer);
-
-                    try printer.moveToStartOfLine();
-                    try printer.moveDownLine(TestRunner.lines_moved);
-
-                    TestRunner.lines_moved += 1;
-                    return;
-                }
-                try printer.clearLine();
-            },
-        }
-    }
 };
 
 // ---- Bare bones main method ----
@@ -167,9 +173,11 @@ pub const TestRes = struct {
 pub fn main() !void {
     std.testing.log_level = .warn;
 
-    const runner = TestRunner.initDefault();
+    var runner = TestRunner.initDefault();
 
     for (builtin.test_functions) |test_fn| {
         runner.runTest(Test.initBuiltin(test_fn)) catch {};
     }
+
+    try runner.displayErrorCount();
 }
