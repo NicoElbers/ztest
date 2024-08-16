@@ -139,8 +139,10 @@ pub fn structEql(a: anytype, b: @TypeOf(a)) bool {
 pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool {
     const T = @TypeOf(a);
     const info = @typeInfo(T);
+
     if (info != .pointer) @compileError("pointerEql is only supported for pointer");
-    if (a == b) return true; // fast path if the addresses are the same
+    // FIXME: make this work, currently fails on slices
+    // if (a == b) return true; // fast path if the addresses are the same
 
     const Child = info.pointer.child;
 
