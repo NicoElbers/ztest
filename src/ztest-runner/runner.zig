@@ -4,6 +4,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const native_os = builtin.os.tag;
 
+const assert = std.debug.assert;
+
 const io = std.io;
 const colors = io.tty;
 const windows = std.os.windows;
@@ -33,6 +35,11 @@ pub const Test = struct {
     args: *const anyopaque,
 
     pub fn initBuiltin(test_fn: BuiltinTestFn) Self {
+        const test_fn_info = @typeInfo(@TypeOf(test_fn.func));
+        comptime assert(test_fn_info == .Pointer);
+        comptime assert(test_fn_info.Pointer.is_const);
+        comptime assert(test_fn_info.Pointer.child == fn () anyerror!void);
+
         const func = struct {
             pub fn wrapper(ptr: *const anyopaque) anyerror!void {
                 // TODO: Comptime assert that BuiltinTestFn.func == *const fn() anyerror!void
