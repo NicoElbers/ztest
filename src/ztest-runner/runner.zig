@@ -67,9 +67,6 @@ pub const Test = struct {
 };
 
 pub const TestRunner = struct {
-    // FIXME: Don't use global state
-    var lines_moved: u15 = 0;
-
     alloc: Allocator,
     printer: ResultPrinter,
     error_count: usize = 0,
