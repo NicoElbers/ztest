@@ -1,7 +1,9 @@
 const std = @import("std");
 const ztest = @import("../ztest.zig");
-const runner = ztest.runner;
 const util = ztest.util;
+const runner = util.RunnerInfo;
+
+const assert = std.debug.assert;
 
 pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     verifyArguments(func, param_list);
@@ -9,13 +11,10 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     var any_failed = false;
     inline for (param_list) |param_tuple| {
         if (util.isUsingZtestRunner) {
-            // const msg = std.fmt.allocPrint(ztest.allocator, "Parameterized test {any}", .{param_tuple}) catch blk: {
-            //     break :blk try std.fmt.allocPrint(ztest.allocator, "Parameterized test {{unknown}}", .{});
-            // };
             const msg = try std.fmt.allocPrint(ztest.allocator, "Parameterized test", .{});
             defer ztest.allocator.free(msg);
 
-            util.runTest(
+            runTest(
                 msg,
                 func,
                 param_tuple,
@@ -30,6 +29,33 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     if (any_failed) {
         return error.SomeTestsFailed;
     }
+}
+
+pub fn runTest(
+    name: []const u8,
+    comptime func: anytype,
+    args: anytype,
+) !void {
+    // TODO: Change this to a fancier assert that gives a proper compile error
+    comptime assert(util.isUsingZtestRunner);
+
+    var our_runner = runner.TestRunner.initDefault();
+
+    try our_runner.runTest(runner.Test{
+        .typ = .parameterized,
+        .name = name,
+        .func = wrap(func, @TypeOf(args)),
+        .args = &args,
+    });
+}
+
+pub fn wrap(comptime func: anytype, comptime ArgsT: type) *const fn (*const anyopaque) anyerror!void {
+    return struct {
+        pub fn wrapper(args_ptr: *const anyopaque) !void {
+            const args: *const ArgsT = @ptrCast(@alignCast(args_ptr));
+            try util.callAnyFunction(func, args.*);
+        }
+    }.wrapper;
 }
 
 fn verifyArguments(comptime func: anytype, param_list: anytype) void {
