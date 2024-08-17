@@ -88,7 +88,6 @@ pub const TestRunner = struct {
         self.printer.deinit();
     }
 
-    // FIXME: These 3 functions are a mess, make it better
     pub fn runTest(self: *Self, tst: Test) !void {
         self.printer.initTest(tst.name, null);
 
