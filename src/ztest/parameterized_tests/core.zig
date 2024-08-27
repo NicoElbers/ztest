@@ -10,52 +10,19 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
 
     var any_failed = false;
     inline for (param_list) |param_tuple| {
-        if (util.isUsingZtestRunner) {
-            const msg = try std.fmt.allocPrint(ztest.allocator, "Parameterized test", .{});
-            defer ztest.allocator.free(msg);
+        util.callAnyFunction(func, param_tuple) catch {
+            any_failed = true;
 
-            runTest(
-                msg,
-                func,
-                param_tuple,
-            ) catch {
-                any_failed = true;
-            };
-        } else {
-            try util.callAnyFunction(func, param_tuple);
-        }
+            if (@errorReturnTrace()) |trace| {
+                std.debug.dumpStackTrace(trace.*);
+            }
+            std.debug.print("PARAMETERIZED TEST FAILURE\n", .{});
+        };
     }
 
     if (any_failed) {
-        return error.SomeTestsFailed;
+        return error.ParameterizedTestFailure;
     }
-}
-
-pub fn runTest(
-    name: []const u8,
-    comptime func: anytype,
-    args: anytype,
-) !void {
-    // TODO: Change this to a fancier assert that gives a proper compile error
-    comptime assert(util.isUsingZtestRunner);
-
-    var our_runner = runner.TestRunner.initDefault();
-
-    try our_runner.runTest(runner.Test{
-        .typ = .parameterized,
-        .name = name,
-        .func = wrap(func, @TypeOf(args)),
-        .args = &args,
-    });
-}
-
-pub fn wrap(comptime func: anytype, comptime ArgsT: type) *const fn (*const anyopaque) anyerror!void {
-    return struct {
-        pub fn wrapper(args_ptr: *const anyopaque) !void {
-            const args: *const ArgsT = @ptrCast(@alignCast(args_ptr));
-            try util.callAnyFunction(func, args.*);
-        }
-    }.wrapper;
 }
 
 fn verifyArguments(comptime func: anytype, param_list: anytype) void {
@@ -117,6 +84,7 @@ pub fn extractFunctionTypes(comptime Function: type) []?type {
     return &argument_field_list;
 }
 
+// TEST: make sure that this doesn't get overriden when the stack changes
 pub fn extractStructFieldTypes(fields: []const std.builtin.Type.StructField) []type {
     var field_type_list: [fields.len]type = undefined;
     inline for (fields, 0..) |field, idx| {
