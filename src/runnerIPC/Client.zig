@@ -6,7 +6,7 @@ out: File,
 /// already be spawned
 pub fn init(gpa: Allocator) Client {
     return Client{
-        .process_streamer = ClientStreamer.init(gpa),
+        .process_streamer = ClientStreamer.init(gpa, std.io.getStdIn()),
         .out = std.io.getStdOut(),
     };
 }

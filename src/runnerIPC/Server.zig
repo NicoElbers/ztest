@@ -6,9 +6,15 @@ out: File,
 /// already be spawned
 pub fn init(gpa: Allocator, child: Child) Server {
     assert(child.stdin != null);
+    assert(child.stdout != null);
+    assert(child.stderr != null);
 
     return Server{
-        .process_streamer = Streamer.init(gpa, child),
+        .process_streamer = Streamer.init(
+            gpa,
+            child.stdout.?,
+            child.stderr.?,
+        ),
         .out = child.stdin.?,
     };
 }

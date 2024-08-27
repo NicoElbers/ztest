@@ -1,10 +1,8 @@
 stdout_content: std.ArrayList(u8),
 stderr_content: std.ArrayList(u8),
 output_metadata: std.ArrayList(SliceMetadata),
-stdout_checked_ptr: usize,
+delim_checked_ptr: usize,
 poller: std.io.Poller(PollerEnum),
-
-pub const timeout_ns = time.ns_per_ms * 5;
 
 const PollerEnum = enum { stdout, stderr };
 
@@ -19,32 +17,22 @@ pub const SliceMetadata = struct {
     len: usize,
 };
 
-pub const ReadStatus = union(enum) {
-    StreamClosed: void,
-    TimedOut: void,
-    ReadLen: usize,
-    DelimeterEnd: usize,
-};
-
-pub fn init(alloc: Allocator, child: Child) ProcesStreamer {
-    assert(child.stdout != null);
-    assert(child.stderr != null);
-
+pub fn init(alloc: Allocator, stdout: File, stderr: File) ServerStreamer {
     const poller = std.io.poll(alloc, PollerEnum, .{
-        .stdout = child.stdout.?,
-        .stderr = child.stderr.?,
+        .stdout = stdout,
+        .stderr = stderr,
     });
 
-    return ProcesStreamer{
+    return ServerStreamer{
         .stdout_content = std.ArrayList(u8).init(alloc),
         .stderr_content = std.ArrayList(u8).init(alloc),
         .output_metadata = std.ArrayList(SliceMetadata).init(alloc),
-        .stdout_checked_ptr = 0,
+        .delim_checked_ptr = 0,
         .poller = poller,
     };
 }
 
-pub fn deinit(self: *ProcesStreamer) void {
+pub fn deinit(self: *ServerStreamer) void {
     self.stdout_content.deinit();
     self.stderr_content.deinit();
     self.output_metadata.deinit();
@@ -52,7 +40,7 @@ pub fn deinit(self: *ProcesStreamer) void {
     self.* = undefined;
 }
 
-pub fn read(self: *ProcesStreamer) Error!ReadStatus {
+pub fn read(self: *ServerStreamer) Error!ReadStatus {
     const should_keep_polling = try self.poller.pollTimeout(timeout_ns);
 
     var total_len_read: usize = 0;
@@ -93,55 +81,29 @@ pub fn read(self: *ProcesStreamer) Error!ReadStatus {
 
 /// Polls until a delimeter is found, the last poll returned nothing or the stream has ended.
 /// If a delimeter is found, returns the index after the delimeter
-pub fn readUntilDelimeter(self: *ProcesStreamer, comptime delimeter: []const u8) Error!ReadStatus {
-    comptime assert(delimeter.len > 0);
-
-    var total_len_read: usize = 0;
-    while (true) {
-        switch (try self.read()) {
-            .ReadLen => |len| total_len_read += len,
-            .TimedOut => if (total_len_read == 0) {
-                return .TimedOut;
-            } else {
-                return .{ .ReadLen = total_len_read };
-            },
-            else => |status| return status,
-        }
-
-        const unseen_slice = self.stdout_content.items[self.stdout_checked_ptr..];
-
-        if (unseen_slice.len < delimeter.len) continue;
-
-        inner: for (0..(unseen_slice.len - delimeter.len + 1)) |start_ptr| {
-            const check_slice = unseen_slice[start_ptr..(start_ptr + delimeter.len)];
-            assert(check_slice.len == delimeter.len);
-
-            // TODO: Be a little bit smarter, and move up stdout_checked_ptr while
-            // looping
-            for (check_slice, delimeter) |check_item, delim_item| {
-                if (check_item != delim_item) continue :inner;
-            }
-
-            self.stdout_checked_ptr += start_ptr + delimeter.len;
-            return .{ .DelimeterEnd = self.stdout_checked_ptr };
-        }
-
-        self.stdout_checked_ptr += unseen_slice.len - delimeter.len + 1;
-    }
-    unreachable;
+pub inline fn readUntilDelimeter(self: *ServerStreamer, comptime delimeter: []const u8) Error!ReadStatus {
+    return try streamerUtils.readUntilDelimeter(
+        self,
+        delimeter,
+        &self.stdout_content,
+        &self.delim_checked_ptr,
+    );
 }
 
 pub fn Errors(comptime Fn: anytype) type {
     return @typeInfo(@typeInfo(@TypeOf(Fn)).Fn.return_type.?).ErrorUnion.error_set;
 }
 
-const ProcesStreamer = @This();
+const ServerStreamer = @This();
 
 const Instant = time.Instant;
 const Child = std.process.Child;
 const Allocator = std.mem.Allocator;
 const File = std.fs.File;
+const ReadStatus = streamerUtils.ReadStatus;
+const timeout_ns = streamerUtils.timeout_ns;
 
 const assert = std.debug.assert;
 const std = @import("std");
 const time = std.time;
+const streamerUtils = @import("streamerUtils.zig");
