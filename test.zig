@@ -32,9 +32,7 @@ pub fn childFn(gpa: Allocator) !void {
     defer client.deinit();
     defer print("Client shutting down");
 
-    print("serving msg");
     try client.serveStringMessage(.rawString, "Hello from client!");
-    print("Done serving msg");
 
     while (true) {
         const message = switch (try client.receiveMessage(gpa)) {
@@ -44,16 +42,13 @@ pub fn childFn(gpa: Allocator) !void {
             },
             .StreamClosed => {
                 print("Stream closed");
-                printf("stdin: {s}", .{client.process_streamer.stdin_content.items});
                 return;
             },
         };
         defer gpa.free(message.bytes);
 
-        printf("Got message: {any}", .{message});
-
         switch (message.header.tag) {
-            .rawString => printf("{s}", .{message.bytes}),
+            .rawString => printf("client received: {s}", .{message.bytes}),
             .exit => return,
             else => unreachable,
         }
@@ -72,31 +67,13 @@ pub fn parentFn(arg0: [:0]const u8, gpa: Allocator) !void {
     var server = Server.init(gpa, child);
     defer server.deinit();
 
-    while (true) {
-        const message = switch (try server.receiveMessage(gpa)) {
-            .Message => |msg| msg,
-            .TimedOut => continue,
-            .StreamClosed => unreachable,
-        };
-        defer gpa.free(message.bytes);
-
-        switch (message.header.tag) {
-            .rawString => printf("received: {s}", .{message.bytes}),
-            else => unreachable,
-        }
-
-        break;
-    }
-
-    print("Sending string");
     try server.serveStringMessage(.rawString, "Hello from server!");
-    print("serving exit");
     try server.serveExit();
 
     const timer = try std.time.Instant.now();
     while ((try std.time.Instant.now()).since(timer) < std.time.ns_per_s * 30) {
         switch (try server.receiveMessage(gpa)) {
-            .Message => |thing| printf("got: {any}", .{thing}),
+            .Message => |thing| printf("server received: {any}", .{thing}),
             .TimedOut => continue,
             .StreamClosed => break,
         }
@@ -112,22 +89,16 @@ pub fn parentFn(arg0: [:0]const u8, gpa: Allocator) !void {
 
         const full_slice = array_list.items[item.start_idx..(item.start_idx + item.len)];
 
-        var last_idx: usize = 0;
-        for (full_slice, 0..) |char, idx| {
-            if (char != '\n') continue;
+        // print prefix
+        std.debug.print("{s} | ", .{@tagName(item.tag)});
 
-            printf("{s} | {s}", .{
-                @tagName(item.tag),
-                full_slice[last_idx..idx],
-            });
-
-            last_idx = idx + 1;
+        for (full_slice) |char| {
+            if (char == '\n') {
+                std.debug.print("\n{s} | ", .{@tagName(item.tag)});
+            } else {
+                std.debug.print("{c}", .{char});
+            }
         }
-        if (last_idx != full_slice.len) {
-            printf("{s} | {s}", .{
-                @tagName(item.tag),
-                full_slice[last_idx..],
-            });
-        }
+        std.debug.print("\n", .{});
     }
 }
