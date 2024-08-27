@@ -49,7 +49,10 @@ pub fn childFn(gpa: Allocator) !void {
 
         switch (message.header.tag) {
             .rawString => printf("client received: {s}", .{message.bytes}),
-            .exit => return,
+            .exit => {
+                print("Client received exit");
+                return;
+            },
             else => unreachable,
         }
     }
@@ -89,16 +92,19 @@ pub fn parentFn(arg0: [:0]const u8, gpa: Allocator) !void {
 
         const full_slice = array_list.items[item.start_idx..(item.start_idx + item.len)];
 
-        // print prefix
-        std.debug.print("{s} | ", .{@tagName(item.tag)});
+        var last_idx: usize = 0;
+        for (full_slice, 0..) |char, idx| {
+            if (char != '\n') continue;
+            const slice = full_slice[last_idx..idx];
 
-        for (full_slice) |char| {
-            if (char == '\n') {
-                std.debug.print("\n{s} | ", .{@tagName(item.tag)});
-            } else {
-                std.debug.print("{c}", .{char});
-            }
+            if (slice.len == 0) continue;
+            std.debug.print("{s} | {s}\n", .{ @tagName(item.tag), slice });
+
+            last_idx = idx + 1;
         }
-        std.debug.print("\n", .{});
+        const slice = full_slice[last_idx..];
+
+        if (slice.len == 0) continue;
+        std.debug.print("{s} | {s}\n", .{ @tagName(item.tag), slice });
     }
 }
