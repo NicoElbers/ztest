@@ -65,6 +65,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    addMultiTest(b, test_step, &.{ztest_mod}, .{
+        .name = "IPC core unit tests",
+        .root_source_file = b.path("src/runnerIPC/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 }
 
 fn addMultiTest(b: *Build, test_step: *Step, deps: []const NamedModule, options: TestOptions) void {
@@ -79,6 +86,7 @@ fn addMultiTest(b: *Build, test_step: *Step, deps: []const NamedModule, options:
         with_runner.root_module.addImport(dep.name, dep.module);
     }
     const run_with_runner = b.addRunArtifact(with_runner);
+    run_with_runner.has_side_effects = true;
     test_step.dependOn(&run_with_runner.step);
 
     // ------------- Without runner -------------
@@ -92,5 +100,6 @@ fn addMultiTest(b: *Build, test_step: *Step, deps: []const NamedModule, options:
         without_runner.root_module.addImport(dep.name, dep.module);
     }
     const run_without_runner = b.addRunArtifact(without_runner);
+    run_without_runner.has_side_effects = true;
     test_step.dependOn(&run_without_runner.step);
 }
