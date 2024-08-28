@@ -33,6 +33,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const IPC_mod = makeModule(b, "IPC", .{
+        .root_source_file = b.path("src/runnerIPC/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const test_step = b.step("test", "Run unit tests");
 
     addMultiTest(b, test_step, &.{}, .{
@@ -69,6 +75,13 @@ pub fn build(b: *std.Build) void {
     addMultiTest(b, test_step, &.{ztest_mod}, .{
         .name = "IPC core unit tests",
         .root_source_file = b.path("src/runnerIPC/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    addMultiTest(b, test_step, &.{ ztest_mod, IPC_mod }, .{
+        .name = "IPC integration tests",
+        .root_source_file = b.path("tests/IPC/root.zig"),
         .target = target,
         .optimize = optimize,
     });
