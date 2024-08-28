@@ -1,4 +1,4 @@
-process_streamer: Streamer,
+process_streamer: ServerStreamer,
 out: File,
 
 /// Child must have stdout and stderr behavior of Pipe, this ensures that the
@@ -10,7 +10,7 @@ pub fn init(gpa: Allocator, child: Child) Server {
     assert(child.stderr != null);
 
     return Server{
-        .process_streamer = Streamer.init(
+        .process_streamer = ServerStreamer.init(
             gpa,
             child.stdout.?,
             child.stderr.?,
@@ -82,7 +82,7 @@ pub const MessageStatus = union(enum) {
     TimedOut: void,
 };
 
-pub fn receiveMessage(self: *Server, alloc: Allocator) !MessageStatus {
+pub fn receiveMessage(self: *Server, alloc: Allocator) ServerStreamer.Error!MessageStatus {
     const Header = Message.Header;
     var stream = &self.process_streamer;
     const input = &stream.stdout_content;
@@ -169,7 +169,7 @@ const Server = @This();
 const File = std.fs.File;
 const Allocator = std.mem.Allocator;
 const Child = std.process.Child;
-const Streamer = @import("ServerStreamer.zig");
+const ServerStreamer = @import("ServerStreamer.zig");
 const Message = IPC.Message;
 
 const std = @import("std");
