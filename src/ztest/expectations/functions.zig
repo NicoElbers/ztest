@@ -93,7 +93,10 @@ pub fn IsError(comptime T: type) type {
                 .error_union => {
                     _ = state.val catch |err| {
                         if (err == self.err) return;
+                        return error.WrongError;
                     };
+
+                    return error.NotAnError;
                 },
                 .error_set => {
                     if (state.val == self.err) return;
