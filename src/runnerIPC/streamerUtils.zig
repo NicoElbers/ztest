@@ -24,11 +24,10 @@ pub fn readUntilDelimeter(
         if (checked_ptr.* >= to_check.items.len -| delimeter.len) {
             switch (try streamer.read()) {
                 .ReadLen => |len| total_len_read += len,
-                .TimedOut => if (total_len_read == 0) {
-                    return .TimedOut;
-                } else {
-                    return .{ .ReadLen = total_len_read };
-                },
+                .TimedOut => if (total_len_read == 0)
+                    return .TimedOut
+                else
+                    return .{ .ReadLen = total_len_read },
                 else => |status| return status,
             }
         }
@@ -41,8 +40,6 @@ pub fn readUntilDelimeter(
             const check_slice = unseen_slice[start_ptr..(start_ptr + delimeter.len)];
             assert(check_slice.len == delimeter.len);
 
-            // TODO: Be a little bit smarter, and move up delim_checked_ptr while
-            // looping
             for (check_slice, delimeter) |check_item, delim_item| {
                 if (check_item != delim_item) continue :inner;
             }
