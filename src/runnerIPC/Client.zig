@@ -59,66 +59,32 @@ pub fn serveStringMessage(
     );
 }
 
-pub const MessageStatus = union(enum) {
-    Message: Message,
-    StreamClosed: void,
-    TimedOut: void,
+pub const ReceiveError = error{
+    Unexpected,
+    OutOfMemory,
+    InputOutput,
+    AccessDenied,
+    BrokenPipe,
+    SystemResources,
+    OperationAborted,
+    WouldBlock,
+    ConnectionResetByPeer,
+    IsDir,
+    ConnectionTimedOut,
+    NotOpenForReading,
+    SocketNotConnected,
+    Canceled,
+    StreamClosed,
+    IncompleteMessage,
+    NetworkSubsystemFailed,
 };
 
-pub fn receiveMessage(self: *Client, alloc: Allocator) !MessageStatus {
-    const Header = Message.Header;
-    var stream = &self.process_streamer;
-    const input = &stream.stdin_content;
-
-    const pos = switch (try stream.readUntilDelimeter(&IPC.special_message_start_key)) {
-        .DelimeterEnd => |pos| pos,
-        .StreamClosed => return .StreamClosed,
-        else => return .TimedOut,
-    };
-
-    var is_last_round = false;
-    const header: Header = blk: while (true) {
-        switch (try stream.read()) {
-            .StreamClosed => {
-                if (is_last_round) return .StreamClosed;
-                is_last_round = true;
-            },
-            else => {},
-        }
-
-        const message_slice = input.items[pos..];
-
-        if (message_slice.len < @sizeOf(Header)) continue;
-
-        var arr: [@sizeOf(Header)]u8 = undefined;
-        @memcpy(&arr, message_slice[0..@sizeOf(Header)]);
-
-        break :blk @as(Header, @bitCast(arr));
-    };
-
-    is_last_round = false;
-
-    const bytes_pos = pos + @sizeOf(Header);
-    while (true) {
-        switch (try stream.read()) {
-            .StreamClosed => {
-                if (is_last_round) return .StreamClosed;
-                is_last_round = true;
-            },
-            else => {},
-        }
-
-        const after_slice = input.items[bytes_pos..];
-
-        if (after_slice.len < header.bytes_len) continue;
-
-        const bytes = try alloc.alloc(u8, header.bytes_len);
-        @memcpy(bytes, after_slice[0..header.bytes_len]);
-
-        return .{ .Message = Message{ .header = header, .bytes = bytes } };
-    }
-
-    return error.IncompleteMessage;
+pub fn receiveMessage(self: *Client, alloc: Allocator) ReceiveError!MessageStatus {
+    return try nodeUtils.receiveMessage(
+        alloc,
+        &self.process_streamer,
+        &self.process_streamer.stdin_content,
+    );
 }
 
 fn bswap(x: anytype) @TypeOf(x) {
@@ -155,8 +121,10 @@ const Allocator = std.mem.Allocator;
 const Child = std.process.Child;
 const ClientStreamer = @import("ClientStreamer.zig");
 const Message = IPC.Message;
+const MessageStatus = nodeUtils.MessageStatus;
 
 const std = @import("std");
+const nodeUtils = @import("nodeUtils.zig");
 const IPC = @import("root.zig");
 const builtin = @import("builtin");
 const native_endian = builtin.target.cpu.arch.endian();
