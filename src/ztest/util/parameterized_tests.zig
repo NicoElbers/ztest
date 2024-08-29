@@ -35,13 +35,13 @@ pub fn wrap(comptime func: anytype, comptime ArgsT: type) *const fn (*const anyo
 // TODO: Put this in an actual util module? file? idk.
 pub fn callAnyFunction(comptime func: anytype, args: anytype) !void {
     const info = @typeInfo(@TypeOf(func));
-    if (info != .Fn)
+    if (info != .@"fn")
         @compileError("callAnyFunction takes in a function and argument tuple");
 
-    const RetT = info.Fn.return_type.?;
+    const RetT = info.@"fn".return_type.?;
     switch (@typeInfo(RetT)) {
-        .ErrorUnion,
-        .ErrorSet,
+        .error_union,
+        .error_set,
         => _ = try @call(.auto, func, args),
 
         else => _ = @call(.auto, func, args),

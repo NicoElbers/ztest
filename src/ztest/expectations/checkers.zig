@@ -8,52 +8,52 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
     _ = b_info;
 
     return switch (a_info) {
-        .Void,
-        .NoReturn,
-        .Null,
-        .Undefined,
+        .void,
+        .noreturn,
+        .null,
+        .undefined,
         => true, // Only one value
 
         // TODO: Verify
-        .Enum,
+        .@"enum",
         => true, // Doesn't compile otherwise
 
-        .Int,
-        .ComptimeInt,
-        .Bool,
+        .int,
+        .comptime_int,
+        .bool,
         => a == b, // Simple equality
 
         // TEST: Different error sets
-        .ErrorSet,
+        .error_set,
         // TEST: Capitalization
-        .EnumLiteral,
+        .enum_literal,
         // TEST: types with different subtypes
-        .Type,
+        .type,
         => a == b, // Simple comptime equality
 
-        .Fn,
+        .@"fn",
         // TODO: Maybe compile error, only allow shallow eql
         // Maybe add a special eql that allows this
-        .Opaque,
-        .Frame,
-        .AnyFrame,
+        .@"opaque",
+        .frame,
+        .@"anyframe",
         => a == b, // pointer equality
 
         // TEST: Look at std tests
-        .Float,
-        .ComptimeFloat,
+        .float,
+        .comptime_float,
         => floatEql(a, b),
 
         // TEST: I need edge cases for both of these
-        .Array,
-        .Vector,
+        .array,
+        .vector,
         => deepEquals(&a, &b), //Make use of pointerEql
 
-        .Struct => structEql(a, b),
-        .Optional => optionalEql(a, b),
-        .ErrorUnion => errorUnionEql(a, b),
-        .Union => |info| unionEql(a, b, info),
-        .Pointer => |ptr| pointerEql(a, b, ptr),
+        .@"struct" => structEql(a, b),
+        .optional => optionalEql(a, b),
+        .error_union => errorUnionEql(a, b),
+        .@"union" => |info| unionEql(a, b, info),
+        .pointer => |ptr| pointerEql(a, b, ptr),
     };
 }
 
@@ -62,7 +62,7 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
 pub fn unionEql(a: anytype, b: @TypeOf(a), info: std.builtin.Type.Union) bool {
     const T = @TypeOf(a);
     const a_info = @typeInfo(T);
-    if (a_info != .Union)
+    if (a_info != .@"union")
         @compileError("unionEql only works for unions");
 
     if (info.tag_type) |UnionTag| {
@@ -86,7 +86,7 @@ pub fn unionEql(a: anytype, b: @TypeOf(a), info: std.builtin.Type.Union) bool {
 
 pub fn errorUnionEql(a: anytype, b: @TypeOf(a)) bool {
     const info = @typeInfo(@TypeOf(a));
-    if (info != .ErrorUnion)
+    if (info != .error_union)
         @compileError("optionalEql only works for optionals");
 
     const a_inner = a catch |a_err| {
@@ -105,7 +105,7 @@ pub fn errorUnionEql(a: anytype, b: @TypeOf(a)) bool {
 
 pub fn optionalEql(maybe_a: anytype, maybe_b: @TypeOf(maybe_a)) bool {
     const info = @typeInfo(@TypeOf(maybe_a));
-    if (info != .Optional)
+    if (info != .optional)
         @compileError("optionalEql only works for optionals");
 
     if (maybe_a) |a| {
@@ -125,9 +125,9 @@ pub fn optionalEql(maybe_a: anytype, maybe_b: @TypeOf(maybe_a)) bool {
 
 pub fn structEql(a: anytype, b: @TypeOf(a)) bool {
     const info = @typeInfo(@TypeOf(a));
-    if (info != .Struct) @compileError("structEql is only supported for structs");
+    if (info != .@"struct") @compileError("structEql is only supported for structs");
 
-    inline for (info.Struct.fields) |field_info| {
+    inline for (info.@"struct".fields) |field_info| {
         if (!deepEquals(
             @field(a, field_info.name),
             @field(b, field_info.name),
@@ -139,10 +139,10 @@ pub fn structEql(a: anytype, b: @TypeOf(a)) bool {
 pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool {
     const T = @TypeOf(a);
     const info = @typeInfo(T);
-    if (info != .Pointer) @compileError("pointerEql is only supported for pointer");
+    if (info != .pointer) @compileError("pointerEql is only supported for pointer");
     if (a == b) return true; // fast path if the addresses are the same
 
-    const Child = info.Pointer.child;
+    const Child = info.pointer.child;
 
     // TODO: Maybe compile error, only allow shallow eql
     // Maybe add a special eql that allows this
@@ -150,7 +150,7 @@ pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool
         return a == b;
 
     const sentinel: ?Child = blk: {
-        if (info.Pointer.sentinel) |s| {
+        if (info.pointer.sentinel) |s| {
             break :blk @as(Child, @ptrCast(@alignCast(s)));
         } else {
             break :blk null;
@@ -161,7 +161,7 @@ pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool
         .C => @compileError(@typeName(T) ++ " is a c ptr"),
         .One,
         => {
-            if (@typeInfo(Child) == .Fn)
+            if (@typeInfo(Child) == .@"fn")
                 return a == b;
 
             return deepEquals(a.*, b.*);
@@ -204,8 +204,8 @@ pub fn floatEql(a: anytype, b: @TypeOf(a)) bool {
     const T = @TypeOf(a);
     const info = @typeInfo(T);
     const tolerance = switch (info) {
-        .Float => math.sqrt(math.floatEps(T)),
-        .ComptimeFloat => 1e-4,
+        .float => math.sqrt(math.floatEps(T)),
+        .comptime_float => 1e-4,
         else => @compileError("floatEql is only supported for floats"),
     };
 

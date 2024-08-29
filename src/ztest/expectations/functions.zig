@@ -21,18 +21,18 @@ pub fn SomeExpectation(comptime T: type) type {
             const P = @TypeOf(ptr);
             const ptr_info = @typeInfo(P);
 
-            if (ptr_info != .Pointer) @compileError("Pointer must be of type pointer");
-            if (ptr_info.Pointer.size != .One)
+            if (ptr_info != .pointer) @compileError("Pointer must be of type pointer");
+            if (ptr_info.pointer.size != .One)
                 @compileError("Pointer must be a single item pointer");
 
-            const Child = ptr_info.Pointer.child;
+            const Child = ptr_info.pointer.child;
 
             if (!std.meta.hasFn(Child, "expectation"))
                 @compileError("Type " ++ @typeName(Child) ++ " does not have an expect function");
 
             const ArgsT: type = @TypeOf(@field(Child, "expectation"));
             const args = std.meta.ArgsTuple(ArgsT);
-            const args_tuple = @typeInfo(args).Struct;
+            const args_tuple = @typeInfo(args).@"struct";
             if (args_tuple.fields.len != 2)
                 @compileError("'expect' function in type " ++ @typeName(Child) ++ " should have 2 parameters");
             if (args_tuple.fields[0].type != *const Child)
@@ -64,8 +64,8 @@ pub inline fn isError(expected: anytype) SomeExpectation(@TypeOf(expected)) {
 }
 pub fn IsError(comptime T: type) type {
     switch (@typeInfo(T)) {
-        .ErrorUnion,
-        .ErrorSet,
+        .error_union,
+        .error_set,
         => {},
 
         else => @compileError("Type " ++ @typeName(T) ++ " cannot be an error"),
@@ -90,12 +90,12 @@ pub fn IsError(comptime T: type) type {
             state.expected = self.err;
 
             switch (@typeInfo(T)) {
-                .ErrorUnion => {
+                .error_union => {
                     _ = state.val catch |err| {
                         if (err == self.err) return;
                     };
                 },
-                .ErrorSet => {
+                .error_set => {
                     if (state.val == self.err) return;
                 },
 
@@ -129,11 +129,11 @@ pub fn IsValue(comptime T: type) type {
         pub fn expectation(self: *const Self, state: *ExpectationState(T)) !void {
             _ = self;
             switch (@typeInfo(T)) {
-                .ErrorSet => {},
-                .ErrorUnion => {
+                .error_set => {},
+                .error_union => {
                     if (!std.meta.isError(state.val)) return;
                 },
-                .Optional => {
+                .optional => {
                     if (state.val) |_| {
                         return;
                     }
@@ -191,12 +191,12 @@ pub const RangeConfig = struct {
 
 pub fn IsBetween(comptime T: type) type {
     switch (@typeInfo(T)) {
-        .Int,
-        .ComptimeInt,
+        .int,
+        .comptime_int,
         => {},
 
-        .Float,
-        .ComptimeFloat,
+        .float,
+        .comptime_float,
         => @compileError("Use IsBetweenF for floats instead"),
         // TODO: Make IsBetweenF
         // why? Just extend the config a little maybe not even
@@ -309,9 +309,9 @@ pub fn IsMoreThan(comptime T: type) type {
 
 pub fn Contains(comptime T: type) type {
     const Child: type = switch (@typeInfo(T)) {
-        .Array => |arr| return arr.child,
-        .Vector => |vec| return vec.child,
-        .Pointer => |ptr| return ptr.child,
+        .array => |arr| return arr.child,
+        .vector => |vec| return vec.child,
+        .pointer => |ptr| return ptr.child,
 
         else => @compileError(@typeName(T) ++ " does not contain anything"),
     };
@@ -348,9 +348,9 @@ pub const ContainConfig = struct {
 
 pub fn ContainsAll(comptime T: type) type {
     const Child: type = switch (@typeInfo(T)) {
-        .Array => |arr| return arr.child,
-        .Vector => |vec| return vec.child,
-        .Pointer => |ptr| return ptr.child,
+        .array => |arr| return arr.child,
+        .vector => |vec| return vec.child,
+        .pointer => |ptr| return ptr.child,
 
         else => @compileError(@typeName(T) ++ " does not contain anything"),
     };

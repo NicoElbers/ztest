@@ -11,7 +11,7 @@ const SomeExpectation = exp_fn.SomeExpectation;
 // FIXME: This never worked, remove
 fn isExpectationError(err: anyerror) bool {
     const expectation_info = @typeInfo(ExpectationError);
-    const errors: []const std.builtin.Type.Error = expectation_info.ErrorSet.?;
+    const errors: []const std.builtin.Type.Error = expectation_info.error_set.?;
 
     for (errors) |expectationError| {
         if (std.meta.eql(@errorName(err), expectationError.name)) return true;

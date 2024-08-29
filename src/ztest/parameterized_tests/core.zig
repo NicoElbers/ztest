@@ -37,21 +37,21 @@ fn verifyArguments(comptime func: anytype, param_list: anytype) void {
     const func_info = @typeInfo(func_type);
     const param_list_info = @typeInfo(@TypeOf(param_list));
 
-    if (func_info != .Fn)
+    if (func_info != .@"fn")
         @compileError("func is expected to be a function");
 
-    if (param_list_info != .Struct or !param_list_info.Struct.is_tuple)
+    if (param_list_info != .@"struct" or !param_list_info.@"struct".is_tuple)
         @compileError("param_list is expected to be a tuple of tuples");
 
     const func_param_types = extractFunctionTypes(func_type);
 
-    inline for (param_list_info.Struct.fields) |param_tuple| {
+    inline for (param_list_info.@"struct".fields) |param_tuple| {
         const param_tuple_info = @typeInfo(param_tuple.type);
 
-        if (param_tuple_info != .Struct)
+        if (param_tuple_info != .@"struct")
             @compileError("param_list must be a tuple of tuples");
 
-        const tuple_param_types = extractStructFieldTypes(param_tuple_info.Struct.fields);
+        const tuple_param_types = extractStructFieldTypes(param_tuple_info.@"struct".fields);
 
         if (func_param_types.len != tuple_param_types.len)
             @compileError(std.fmt.comptimePrint("Expected {d} parameters, but found {d}", .{
@@ -76,10 +76,10 @@ fn verifyArguments(comptime func: anytype, param_list: anytype) void {
 
 pub fn extractFunctionTypes(comptime Function: type) []?type {
     const info = @typeInfo(Function);
-    if (info != .Fn)
+    if (info != .@"fn")
         @compileError("extractFunctionTypes expects a function type");
 
-    const function_info = info.Fn;
+    const function_info = info.@"fn";
     if (function_info.is_var_args)
         @compileError("Cannot extract types for variadic function");
 
