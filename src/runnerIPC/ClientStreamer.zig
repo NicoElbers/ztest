@@ -67,7 +67,7 @@ pub inline fn readUntilDelimeter(self: *ClientStreamer, comptime delimeter: []co
 }
 
 pub fn Errors(comptime Fn: anytype) type {
-    return @typeInfo(@typeInfo(@TypeOf(Fn)).Fn.return_type.?).ErrorUnion.error_set;
+    return @typeInfo(@typeInfo(@TypeOf(Fn)).@"fn".return_type.?).error_union.error_set;
 }
 
 fn print(comptime fmt: []const u8, args: anytype) void {

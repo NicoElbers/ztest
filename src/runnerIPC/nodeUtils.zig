@@ -74,12 +74,12 @@ pub fn receiveMessage(
 pub inline fn Errors(comptime T: type, comptime Fn: []const u8) type {
     const info = @typeInfo(T);
     switch (info) {
-        .Pointer => |ptr| switch (ptr.size) {
+        .pointer => |ptr| switch (ptr.size) {
             .One => return Errors(ptr.child, Fn),
             else => @compileError("Unsupported for " ++ @tagName(ptr.size) ++ " pointers"),
         },
-        .Struct => return ErrorsFn(@field(T, Fn)),
-        .Fn => @compileError("Use ErrorsFn instead"),
+        .@"struct" => return ErrorsFn(@field(T, Fn)),
+        .@"fn" => @compileError("Use ErrorsFn instead"),
         else => @compileError("Unsupported type " ++ @typeName(T)),
     }
 }
@@ -87,12 +87,12 @@ pub inline fn Errors(comptime T: type, comptime Fn: []const u8) type {
 pub inline fn ErrorsFn(comptime Fn: anytype) type {
     const info = @typeInfo(@TypeOf(Fn));
 
-    comptime assert(info == .Fn);
-    const fn_info = info.Fn;
+    comptime assert(info == .@"fn");
+    const fn_info = info.@"fn";
 
     if (fn_info.return_type == null) @compileError("return type null :(");
 
-    return @typeInfo(fn_info.return_type.?).ErrorUnion.error_set;
+    return @typeInfo(fn_info.return_type.?).error_union.error_set;
 }
 
 const std = @import("std");
