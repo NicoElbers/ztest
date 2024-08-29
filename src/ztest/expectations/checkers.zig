@@ -52,25 +52,27 @@ pub fn deepEquals(a: anytype, b: @TypeOf(a)) bool {
         .@"struct" => structEql(a, b),
         .optional => optionalEql(a, b),
         .error_union => errorUnionEql(a, b),
-        .@"union" => |info| unionEql(a, b, info),
-        .pointer => |ptr| pointerEql(a, b, ptr),
+        .@"union" => unionEql(a, b),
+        .pointer => pointerEql(a, b),
     };
 }
 
 // std.meta.eql
 
-pub fn unionEql(a: anytype, b: @TypeOf(a), info: std.builtin.Type.Union) bool {
+pub fn unionEql(a: anytype, b: @TypeOf(a)) bool {
     const T = @TypeOf(a);
-    const a_info = @typeInfo(T);
-    if (a_info != .@"union")
+    const info = @typeInfo(T);
+    if (info != .@"union")
         @compileError("unionEql only works for unions");
 
-    if (info.tag_type) |UnionTag| {
+    const union_info = info.@"union";
+
+    if (union_info.tag_type) |UnionTag| {
         const tag_a = std.meta.activeTag(a);
         const tag_b = std.meta.activeTag(b);
         if (tag_a != tag_b) return false;
 
-        inline for (info.fields) |field_info| {
+        inline for (union_info.fields) |field_info| {
             if (@field(UnionTag, field_info.name) == tag_a) {
                 return deepEquals(
                     @field(a, field_info.name),
@@ -136,7 +138,7 @@ pub fn structEql(a: anytype, b: @TypeOf(a)) bool {
     return true;
 }
 
-pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool {
+pub fn pointerEql(a: anytype, b: @TypeOf(a)) bool {
     const T = @TypeOf(a);
     const info = @typeInfo(T);
 
@@ -159,7 +161,7 @@ pub fn pointerEql(a: anytype, b: @TypeOf(a), ptr: std.builtin.Type.Pointer) bool
         }
     };
 
-    switch (ptr.size) {
+    switch (info.pointer.size) {
         .C => @compileError(@typeName(T) ++ " is a c ptr"),
         .One,
         => {
