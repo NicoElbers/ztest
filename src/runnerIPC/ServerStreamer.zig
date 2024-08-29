@@ -91,7 +91,7 @@ pub inline fn readUntilDelimeter(self: *ServerStreamer, comptime delimeter: []co
 }
 
 pub fn Errors(comptime Fn: anytype) type {
-    return @typeInfo(@typeInfo(@TypeOf(Fn)).Fn.return_type.?).ErrorUnion.error_set;
+    return @typeInfo(@typeInfo(@TypeOf(Fn)).@"fn".return_type.?).error_union.error_set;
 }
 
 const ServerStreamer = @This();
