@@ -83,6 +83,54 @@ test "client clean message" {
     });
 }
 
+test "server noisy message" {
+    var setup = IPCSetup.setup();
+    defer setup.cleanup();
+
+    const server = &setup.server;
+    const client = &setup.client;
+    const stdin = &setup.stdin.write_file;
+
+    try stdin.writeAll("Noise");
+
+    const server_message = "Hello from server";
+    try server.serveStringMessage(.rawString, server_message);
+
+    try stdin.writeAll("Noise");
+
+    const message = try waitForMessageTimeout(client, msg_timeout);
+    defer gpa.free(message.bytes);
+
+    try expect(message).isEqualTo(Message{
+        .header = .{ .tag = .rawString, .bytes_len = server_message.len },
+        .bytes = server_message,
+    });
+}
+
+test "client noisy message" {
+    var setup = IPCSetup.setup();
+    defer setup.cleanup();
+
+    const server = &setup.server;
+    const client = &setup.client;
+    const stdout = &setup.stdout.write_file;
+
+    try stdout.writeAll("Noise");
+
+    const client_message = "Hello from client";
+    try client.serveStringMessage(.rawString, client_message);
+
+    try stdout.writeAll("Noise");
+
+    const message = try waitForMessageTimeout(server, msg_timeout);
+    defer gpa.free(message.bytes);
+
+    try expect(message).isEqualTo(Message{
+        .header = .{ .tag = .rawString, .bytes_len = client_message.len },
+        .bytes = client_message,
+    });
+}
+
 test "active communication" {
     var setup = IPCSetup.setup();
     defer setup.cleanup();
@@ -177,7 +225,7 @@ pub fn waitForMessageTimeout(node: anytype, timeout_ns: u64) !Message {
     return error.MessageTookTooLong;
 }
 
-const msg_timeout = std.time.ns_per_ms * 100;
+const msg_timeout = std.time.ns_per_ms * 50;
 
 pub const IPCSetup = struct {
     stdin: Pipe,
