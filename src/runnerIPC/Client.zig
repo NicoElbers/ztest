@@ -17,7 +17,7 @@ pub fn deinit(self: *Client) void {
 }
 
 pub fn serveMessage(
-    server: *Client,
+    client: *Client,
     header: Message.Header,
     bufs: []const []const u8,
 ) !void {
@@ -40,7 +40,8 @@ pub fn serveMessage(
             .len = buf.len,
         };
     }
-    try server.out.writevAll(iovecs[0 .. bufs.len + 2]);
+
+    try client.out.writevAll(iovecs[0 .. bufs.len + 2]);
 }
 
 pub fn serveStringMessage(
