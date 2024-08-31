@@ -16,6 +16,15 @@ const Allocator = std.mem.Allocator;
 
 const BuiltinTestFn = std.builtin.TestFn;
 
+// Compatibility with std runner
+
+pub fn fuzzInput(arg: anytype) []const u8 {
+    _ = arg;
+
+    std.log.err("Fuzzing not supported by ztest yet", .{});
+    return "";
+}
+
 // TODO: Make this more unique with underscores and shit
 pub const IsZtestRunner = void;
 
