@@ -169,6 +169,71 @@ test "active communication" {
     });
 }
 
+test "server message with multithreaded noise" {
+    var setup = IPCSetup.setup();
+    defer setup.cleanup();
+
+    const server = &setup.server;
+    const client = &setup.client;
+
+    var wg = WaitGroup{};
+    wg.start();
+
+    const thread = try Thread.spawn(.{}, noiseMaker, .{ &wg, server.out });
+
+    const msg_string = "Hello from server";
+    for (0..100) |_| {
+        try server.serveStringMessage(.rawString, msg_string);
+
+        const msg = try waitForMessageTimeout(client, msg_timeout);
+        defer gpa.free(msg.bytes);
+
+        try expect(msg).isEqualTo(.{
+            .header = .{ .tag = .rawString, .bytes_len = msg_string.len },
+            .bytes = msg_string,
+        });
+    }
+
+    wg.finish();
+    thread.join();
+}
+
+test "client message with multithreaded noise" {
+    var setup = IPCSetup.setup();
+    defer setup.cleanup();
+
+    const server = &setup.server;
+    const client = &setup.client;
+
+    var wg = WaitGroup{};
+    wg.start();
+
+    const thread = try Thread.spawn(.{}, noiseMaker, .{ &wg, client.out });
+
+    const msg_string = "Hello from client";
+    for (0..100) |_| {
+        try client.serveStringMessage(.rawString, msg_string);
+
+        const msg = try waitForMessageTimeout(server, msg_timeout);
+        defer gpa.free(msg.bytes);
+
+        try expect(msg).isEqualTo(.{
+            .header = .{ .tag = .rawString, .bytes_len = msg_string.len },
+            .bytes = msg_string,
+        });
+    }
+
+    wg.finish();
+    thread.join();
+}
+
+fn noiseMaker(wg: *WaitGroup, file: File) !void {
+    while (!wg.isDone()) {
+        try file.writeAll("Noise");
+        try Thread.yield();
+    }
+}
+
 pub const Pipe = struct {
     read_file: File,
     write_file: File,
@@ -282,6 +347,9 @@ const std = @import("std");
 const ztest = @import("ztest");
 const IPC = @import("IPC");
 const builtin = @import("builtin");
+
+const Thread = std.Thread;
+const WaitGroup = Thread.WaitGroup;
 
 const os = builtin.os.tag;
 const windows = std.os.windows;
