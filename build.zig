@@ -1,40 +1,15 @@
-const std = @import("std");
-
-const Build = std.Build;
-const Step = Build.Step;
-const Module = Build.Module;
-const LazyPath = Build.LazyPath;
-const TestOptions = Build.TestOptions;
-
-const NamedModule = struct {
-    name: []const u8,
-    module: *Module,
-};
-
-fn makeModule(b: *Build, name: []const u8, options: Module.CreateOptions) NamedModule {
-    const mod = b.addModule(name, options);
-    return .{
-        .name = name,
-        .module = mod,
-    };
-}
-
-fn runnerPath(b: *Build) LazyPath {
-    return b.path("src/ztest-runner/runner.zig");
-}
-
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const ztest_mod = makeModule(b, "ztest", .{
-        .root_source_file = b.path("src/ztest/ztest.zig"),
+    const IPC_mod = makeModule(b, "IPC", &.{}, .{
+        .root_source_file = b.path("src/runnerIPC/root.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const IPC_mod = makeModule(b, "IPC", .{
-        .root_source_file = b.path("src/runnerIPC/root.zig"),
+    const ztest_mod = makeModule(b, "ztest", &.{IPC_mod}, .{
+        .root_source_file = b.path("src/ztest/ztest.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -49,7 +24,7 @@ pub fn build(b: *std.Build) void {
         .test_runner = runnerPath(b),
     });
 
-    addMultiTest(b, test_step, &.{}, .{
+    addMultiTest(b, test_step, &.{IPC_mod}, .{
         .name = "ztest core unit tests",
         .root_source_file = b.path("src/ztest/ztest.zig"),
         .target = target,
@@ -72,7 +47,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    addMultiTest(b, test_step, &.{ztest_mod}, .{
+    addMultiTest(b, test_step, &.{ ztest_mod, IPC_mod }, .{
         .name = "IPC core unit tests",
         .root_source_file = b.path("src/runnerIPC/root.zig"),
         .target = target,
@@ -85,6 +60,17 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+}
+
+fn makeModule(b: *Build, name: []const u8, deps: []const NamedModule, options: Module.CreateOptions) NamedModule {
+    const mod = b.addModule(name, options);
+    for (deps) |dep| {
+        mod.addImport(dep.name, dep.module);
+    }
+    return .{
+        .name = name,
+        .module = mod,
+    };
 }
 
 fn addMultiTest(b: *Build, test_step: *Step, deps: []const NamedModule, options: TestOptions) void {
@@ -116,3 +102,19 @@ fn addMultiTest(b: *Build, test_step: *Step, deps: []const NamedModule, options:
     run_without_runner.has_side_effects = true;
     test_step.dependOn(&run_without_runner.step);
 }
+
+fn runnerPath(b: *Build) LazyPath {
+    return b.path("src/ztest-runner/runner.zig");
+}
+
+const Build = std.Build;
+const Step = Build.Step;
+const Module = Build.Module;
+const LazyPath = Build.LazyPath;
+const TestOptions = Build.TestOptions;
+
+const NamedModule = struct {
+    name: []const u8,
+    module: *Module,
+};
+const std = @import("std");
