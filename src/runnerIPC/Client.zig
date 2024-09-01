@@ -29,19 +29,56 @@ pub fn serveMessage(
 }
 
 pub fn serveStringMessage(
-    server: *Client,
+    client: *Client,
     tag: Message.Tag,
     string: []const u8,
 ) !void {
     const header: Message.Header = .{
         .tag = tag,
-        .bytes_len = @as(u32, @intCast(string.len)),
+        .bytes_len = @intCast(string.len),
     };
-    try serveMessage(
-        server,
+    try client.serveMessage(
         header,
         &.{string},
     );
+}
+
+pub fn serveParameterizedStart(client: *Client, args_str: []const u8) !void {
+    const header = Message.Header{
+        .tag = .parameterizedStart,
+        .bytes_len = @intCast(args_str.len),
+    };
+
+    try client.serveMessage(header, &.{args_str});
+}
+
+pub fn serveParameterizedSuccess(client: *Client) !void {
+    const header = Message.Header{
+        .tag = .parameterizedSuccess,
+        .bytes_len = 0,
+    };
+
+    try client.serveMessage(header, &.{});
+}
+
+pub fn serveParameterizedError(client: *Client, error_name: []const u8, stacktrace_str: []const u8) !void {
+    const len: usize = @sizeOf(Message.ParameterizedError) + error_name.len + stacktrace_str.len;
+
+    const header = Message.Header{
+        .tag = .parameterizedError,
+        .bytes_len = @intCast(len),
+    };
+
+    const message_info = Message.ParameterizedError{
+        .error_name_len = @intCast(error_name.len),
+        .stack_trace_fmt_len = @intCast(stacktrace_str.len),
+    };
+
+    try client.serveMessage(header, &.{
+        &std.mem.toBytes(message_info),
+        error_name,
+        stacktrace_str,
+    });
 }
 
 pub const ReceiveError = error{
