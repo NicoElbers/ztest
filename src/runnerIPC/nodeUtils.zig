@@ -99,7 +99,7 @@ pub fn receiveMessage(
     return error.IncompleteMessage;
 }
 
-fn bswap(x: anytype) @TypeOf(x) {
+pub fn bswap(x: anytype) @TypeOf(x) {
     if (!need_bswap) return x;
 
     const T = @TypeOf(x);
