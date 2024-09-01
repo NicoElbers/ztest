@@ -4,6 +4,34 @@ pub const MessageStatus = union(enum) {
     TimedOut: void,
 };
 
+pub fn serveMessage(
+    out: File,
+    header: Message.Header,
+    bufs: []const []const u8,
+) File.WriteError!void {
+    assert(bufs.len < 9);
+    var iovecs: [10]std.posix.iovec_const = undefined;
+    const header_le = bswap(header);
+
+    iovecs[0] = .{
+        .base = &IPC.special_message_start_key,
+        .len = IPC.special_message_start_key.len,
+    };
+    iovecs[1] = .{
+        .base = @as([*]const u8, @ptrCast(&header_le)),
+        .len = @sizeOf(Message.Header),
+    };
+
+    for (bufs, iovecs[2 .. bufs.len + 2]) |buf, *iovec| {
+        iovec.* = .{
+            .base = buf.ptr,
+            .len = buf.len,
+        };
+    }
+
+    try out.writevAll(iovecs[0 .. bufs.len + 2]);
+}
+
 pub fn receiveMessage(
     alloc: Allocator,
     streamer_ptr: anytype,
@@ -71,6 +99,31 @@ pub fn receiveMessage(
     return error.IncompleteMessage;
 }
 
+fn bswap(x: anytype) @TypeOf(x) {
+    if (!need_bswap) return x;
+
+    const T = @TypeOf(x);
+    switch (@typeInfo(T)) {
+        .@"enum" => return @as(T, @enumFromInt(@byteSwap(@intFromEnum(x)))),
+        .int => return @byteSwap(x),
+        .@"struct" => |info| switch (info.layout) {
+            .@"extern" => {
+                var result: T = undefined;
+                inline for (info.fields) |field| {
+                    @field(result, field.name) = bswap(@field(x, field.name));
+                }
+                return result;
+            },
+            .@"packed" => {
+                const I = info.backing_integer.?;
+                return @as(T, @bitCast(@byteSwap(@as(I, @bitCast(x)))));
+            },
+            .auto => @compileError("auto layout struct"),
+        },
+        else => @compileError("bswap on type " ++ @typeName(T)),
+    }
+}
+
 pub inline fn Errors(comptime T: type, comptime Fn: []const u8) type {
     const info = @typeInfo(T);
     switch (info) {
@@ -95,11 +148,15 @@ pub inline fn ErrorsFn(comptime Fn: anytype) type {
     return @typeInfo(fn_info.return_type.?).error_union.error_set;
 }
 
-const std = @import("std");
-const IPC = @import("root.zig");
-
 const assert = std.debug.assert;
 
 const Allocator = std.mem.Allocator;
 const Message = IPC.Message;
 const ServerStreamer = IPC.ServerStreamer;
+const File = std.fs.File;
+
+const std = @import("std");
+const IPC = @import("root.zig");
+const builtin = @import("builtin");
+const native_endian = builtin.target.cpu.arch.endian();
+const need_bswap = native_endian != .little;

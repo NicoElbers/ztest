@@ -28,28 +28,12 @@ pub fn serveMessage(
     server: *Server,
     header: Message.Header,
     bufs: []const []const u8,
-) !void {
-    assert(bufs.len < 9);
-    var iovecs: [10]std.posix.iovec_const = undefined;
-    const header_le = bswap(header);
-
-    iovecs[0] = .{
-        .base = &IPC.special_message_start_key,
-        .len = IPC.special_message_start_key.len,
-    };
-    iovecs[1] = .{
-        .base = @as([*]const u8, @ptrCast(&header_le)),
-        .len = @sizeOf(Message.Header),
-    };
-
-    for (bufs, iovecs[2 .. bufs.len + 2]) |buf, *iovec| {
-        iovec.* = .{
-            .base = buf.ptr,
-            .len = buf.len,
-        };
-    }
-
-    try server.out.writevAll(iovecs[0 .. bufs.len + 2]);
+) File.WriteError!void {
+    try nodeUtils.serveMessage(
+        server.out,
+        header,
+        bufs,
+    );
 }
 
 pub fn serveExit(server: *Server) !void {
