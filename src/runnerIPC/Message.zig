@@ -10,26 +10,30 @@ pub const Header = packed struct(u64) {
 
 pub const Tag = enum(u32) {
     rawString, // TODO : remove, because not useful
+
+    /// Has no body, can only be sent by server
     exit,
+
+    /// Body is stringified arguments, can only be sent by client
+    parameterizedStart,
+
+    /// Body starts with ParameterizedError which explains the rest of the body,
+    /// can only be sent by client
     parameterizedError,
+
+    /// Has no body, can only be sent by client
     parameterizedSkipped,
+
+    /// Has no body, can only be sent by client
+    parameterizedSuccess,
 };
 
-pub const ParameterizedError = packed struct(u64) {
-    // arg fmt
-    arg_fmt_len: u16,
-    // error name
+pub const ParameterizedError = packed struct(u32) {
+    /// error name length, after start
     error_name_len: u16,
-    // stack trace?
-    stack_trace_fmt_len: u16,
-    // If we have source information, relay it
-    optional_src_info_len: u16,
-};
 
-pub const parameterizedSkipped = packed struct(u64) {
-    // arg fmt
-    arg_fmt_len: u32,
-    _reserved: u32,
+    /// stack trace len, after error name
+    stack_trace_fmt_len: u16,
 };
 
 const Message = @This();
