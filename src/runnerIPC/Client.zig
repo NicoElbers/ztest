@@ -20,28 +20,12 @@ pub fn serveMessage(
     client: *Client,
     header: Message.Header,
     bufs: []const []const u8,
-) !void {
-    assert(bufs.len < 9);
-    var iovecs: [10]std.posix.iovec_const = undefined;
-    const header_le = bswap(header);
-
-    iovecs[0] = .{
-        .base = &IPC.special_message_start_key,
-        .len = IPC.special_message_start_key.len,
-    };
-    iovecs[1] = .{
-        .base = @as([*]const u8, @ptrCast(&header_le)),
-        .len = @sizeOf(Message.Header),
-    };
-
-    for (bufs, iovecs[2 .. bufs.len + 2]) |buf, *iovec| {
-        iovec.* = .{
-            .base = buf.ptr,
-            .len = buf.len,
-        };
-    }
-
-    try client.out.writevAll(iovecs[0 .. bufs.len + 2]);
+) File.WriteError!void {
+    try nodeUtils.serveMessage(
+        client.out,
+        header,
+        bufs,
+    );
 }
 
 pub fn serveStringMessage(
@@ -86,31 +70,6 @@ pub fn receiveMessage(self: *Client, alloc: Allocator) ReceiveError!MessageStatu
         &self.process_streamer,
         &self.process_streamer.stdin_content,
     );
-}
-
-fn bswap(x: anytype) @TypeOf(x) {
-    if (!need_bswap) return x;
-
-    const T = @TypeOf(x);
-    switch (@typeInfo(T)) {
-        .@"enum" => return @as(T, @enumFromInt(@byteSwap(@intFromEnum(x)))),
-        .int => return @byteSwap(x),
-        .@"struct" => |info| switch (info.layout) {
-            .@"extern" => {
-                var result: T = undefined;
-                inline for (info.fields) |field| {
-                    @field(result, field.name) = bswap(@field(x, field.name));
-                }
-                return result;
-            },
-            .@"packed" => {
-                const I = info.backing_integer.?;
-                return @as(T, @bitCast(@byteSwap(@as(I, @bitCast(x)))));
-            },
-            .auto => @compileError("auto layout struct"),
-        },
-        else => @compileError("bswap on type " ++ @typeName(T)),
-    }
 }
 
 const assert = std.debug.assert;
