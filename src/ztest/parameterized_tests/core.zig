@@ -1,28 +1,130 @@
 const std = @import("std");
 const ztest = @import("../ztest.zig");
+const IPC = @import("IPC");
 const util = ztest.util;
 const runner = util.RunnerInfo;
+
+const Client = IPC.Client;
 
 const assert = std.debug.assert;
 
 pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     verifyArguments(func, param_list);
 
+    var client = IPC.Client.init(ztest.allocator);
+
     var any_failed = false;
     inline for (param_list) |param_tuple| {
-        util.callAnyFunction(func, param_tuple) catch {
-            any_failed = true;
+        if (util.isUsingZtestRunner) {
+            var buf: [1024]u8 = undefined;
+            const args_str = try makeArgsStr(&buf, param_tuple);
+            try client.serveParameterizedStart(args_str);
+        }
 
-            if (@errorReturnTrace()) |trace| {
-                std.debug.dumpStackTrace(trace.*);
+        const res = util.callAnyFunction(func, param_tuple);
+
+        if (res) {
+            if (util.isUsingZtestRunner) {
+                try client.serveParameterizedSuccess();
             }
-            std.debug.print("PARAMETERIZED TEST FAILURE\n", .{});
-        };
+        } else |err| {
+            if (err != error.SkipZigTest) {
+                any_failed = true;
+                if (util.isUsingZtestRunner) {
+                    var buf: [1024]u8 = undefined;
+
+                    const stack_trace = @errorReturnTrace();
+
+                    // TODO: Currently the stacktrace is kinda fucked, think of a better way to
+                    // get individual traces per parameterized test
+                    const st_str = if (stack_trace) |st| blk: {
+                        break :blk try std.fmt.bufPrint(&buf, "{any}", .{st});
+                    } else "";
+
+                    try client.serveParameterizedError(@errorName(err), st_str);
+                }
+            }
+        }
     }
 
     if (any_failed) {
         return error.ParameterizedTestFailure;
     }
+}
+
+/// Assumes param_tuple is a valid param tuple
+fn makeArgsStr(buf: []u8, param_tuple: anytype) ![]const u8 {
+    const T = @TypeOf(param_tuple);
+    const info = @typeInfo(T).@"struct";
+
+    var fbs = std.io.fixedBufferStream(buf);
+    const writer = fbs.writer().any();
+
+    try writer.writeAll("{ ");
+
+    inline for (info.fields, param_tuple) |field, param| {
+        const specifier = fmtSpecifier(field.type);
+
+        if (specifier) |s| {
+            const fmt = "{" ++ s ++ "}, ";
+
+            try std.fmt.format(writer, fmt, .{param});
+        } else {
+            try writer.writeAll(@typeName(field.type) ++ ", ");
+        }
+    }
+
+    if (info.fields.len > 0) {
+        try fbs.seekBy(-2);
+    }
+    try writer.writeAll(" }");
+
+    return fbs.getWritten();
+}
+
+inline fn fmtSpecifier(comptime T: type) ?[:0]const u8 {
+    const ANY = "any";
+
+    switch (@typeInfo(T)) {
+        .pointer => |ptr_info| switch (ptr_info.size) {
+            .One => switch (@typeInfo(ptr_info.child)) {
+                .array => fmtSpecifier(ptr_info.child),
+                else => return "*",
+            },
+            .Many, .C => return "*",
+            .Slice => {
+                if (ptr_info.child == u8 and ptr_info.is_const) {
+                    return "s";
+                } else {
+                    return ANY;
+                }
+            },
+        },
+        .optional => |info| return "?" ++ (fmtSpecifier(info.child) orelse return null),
+        .error_union => |info| return "!" ++ (fmtSpecifier(info.payload) orelse return null),
+        .error_set => return "!",
+
+        .int,
+        .comptime_int,
+        .float,
+        .comptime_float,
+        => return "d",
+
+        .array,
+        .type,
+        .void,
+        .bool,
+        .@"struct",
+        .null,
+        .@"enum",
+        .@"union",
+        .vector,
+        .enum_literal,
+        => return ANY,
+
+        else => return null,
+    }
+    unreachable;
 }
 
 fn verifyArguments(comptime func: anytype, param_list: anytype) void {
