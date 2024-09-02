@@ -45,6 +45,18 @@ pub fn serveExit(server: *Server) !void {
     try server.serveMessage(header, &.{});
 }
 
+pub fn serveRunTest(server: *Server, start_idx: usize, end_idx: usize) !void {
+    const header: Message.Header = .{
+        .tag = .runTests,
+        .bytes_len = @sizeOf(usize) * 2,
+    };
+
+    try server.serveMessage(header, &.{
+        std.mem.asBytes(&start_idx),
+        std.mem.asBytes(&end_idx),
+    });
+}
+
 pub fn serveStringMessage(
     server: *Server,
     tag: Message.Tag,

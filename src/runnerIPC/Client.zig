@@ -37,10 +37,42 @@ pub fn serveStringMessage(
         .tag = tag,
         .bytes_len = @intCast(string.len),
     };
-    try client.serveMessage(
-        header,
-        &.{string},
-    );
+    try client.serveMessage(header, &.{
+        string,
+    });
+}
+
+pub fn serveTestStart(client: *Client, idx: usize) !void {
+    const header = Message.Header{
+        .tag = .testStart,
+        .bytes_len = @sizeOf(usize),
+    };
+
+    try client.serveMessage(header, &.{
+        std.mem.asBytes(&idx),
+    });
+}
+
+pub fn serveTestSuccess(client: *Client, idx: usize) !void {
+    const header = Message.Header{
+        .tag = .testSuccess,
+        .bytes_len = @sizeOf(usize),
+    };
+
+    try client.serveMessage(header, &.{
+        std.mem.asBytes(&idx),
+    });
+}
+
+pub fn serveTestFailure(client: *Client, idx: usize) !void {
+    const header = Message.Header{
+        .tag = .testFailure,
+        .bytes_len = @sizeOf(usize),
+    };
+
+    try client.serveMessage(header, &.{
+        std.mem.asBytes(&idx),
+    });
 }
 
 pub fn serveParameterizedStart(client: *Client, args_str: []const u8) !void {
@@ -49,7 +81,9 @@ pub fn serveParameterizedStart(client: *Client, args_str: []const u8) !void {
         .bytes_len = @intCast(args_str.len),
     };
 
-    try client.serveMessage(header, &.{args_str});
+    try client.serveMessage(header, &.{
+        args_str,
+    });
 }
 
 pub fn serveParameterizedSuccess(client: *Client) !void {
