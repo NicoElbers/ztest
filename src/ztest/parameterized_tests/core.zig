@@ -16,6 +16,10 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     var any_failed = false;
     inline for (param_list) |param_tuple| {
         if (util.isUsingZtestRunner) {
+            // TODO: Consider sending over the type (@typeInfo) over instead of
+            // this, that way the runner has a big more information. We'd also have
+            // to send over the type name, so I'm not 100% sure this is really useful
+            // but we can see
             var buf: [1024]u8 = undefined;
             const args_str = try makeArgsStr(&buf, param_tuple);
             try client.serveParameterizedStart(args_str);
