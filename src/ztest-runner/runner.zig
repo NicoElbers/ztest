@@ -1,6 +1,7 @@
 // TODO: Structure this file out over multiple files so that everything is more ledgeable
 
 const std = @import("std");
+const IPC = @import("runnerIPC/root.zig");
 const builtin = @import("builtin");
 const native_os = builtin.os.tag;
 
@@ -82,6 +83,8 @@ pub const TestRunner = struct {
 
     const Self = @This();
 
+    pub const TestReturn = struct { err: ?anyerror };
+
     pub fn initDefault() TestRunner {
         const output_file = std.io.getStdOut();
         const alloc = std.testing.allocator;
@@ -97,7 +100,7 @@ pub const TestRunner = struct {
         self.printer.deinit();
     }
 
-    pub fn runTest(self: *Self, tst: Test) !void {
+    pub fn runTest(self: *Self, tst: Test) !TestReturn {
         self.printer.initTest(tst.name, null);
 
         // FIXME: I'm not using test res anymore, simplify
@@ -113,10 +116,11 @@ pub const TestRunner = struct {
 
         self.printer.updateTest(tst.name, status);
 
-        // Return the error to the party calling the test
-        // TODO: Change this into ?ErrorMessage or something
-        // FIXME: Make it more obvious that this is the test result and not an error.
-        return res.raw_result;
+        if (res.raw_result) {
+            return .{ .err = null };
+        } else |err| {
+            return .{ .err = err };
+        }
     }
 };
 
@@ -132,18 +136,180 @@ pub const TestRes = struct {
 
 // ---- Bare bones main method ----
 
+const Args = enum {
+    @"--client",
+};
+
+const ProcessFunction = enum(u1) { server, client };
+
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = gpa.allocator();
+
     std.testing.log_level = .warn;
+
+    const args = try std.process.argsAlloc(alloc);
+    defer std.process.argsFree(alloc, args);
+
+    var process_state: ProcessFunction = .server;
+    for (args) |arg| {
+        const arg_enum = std.meta.stringToEnum(Args, arg) orelse continue;
+
+        switch (arg_enum) {
+            .@"--client" => process_state = .client,
+        }
+    }
+
+    switch (process_state) {
+        .server => return serverFn(args[0], alloc),
+        .client => return clientFn(alloc),
+    }
+}
+
+fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
+    var child = std.process.Child.init(&.{ argv0, @tagName(Args.@"--client") }, alloc);
+    child.stdin_behavior = .Pipe;
+    child.stdout_behavior = .Pipe;
+    child.stderr_behavior = .Pipe;
+
+    try child.spawn();
+    errdefer _ = child.kill() catch std.log.err("Couldn't kill child with pgid {?d}", .{child.pgid});
+
+    var server = IPC.Server.init(alloc, child);
+    defer server.deinit();
+
+    const tests = builtin.test_functions;
+    try server.serveRunTest(0, tests.len);
+
+    const State = enum { nothing, in_test, in_parameterized_test };
+
+    var tests_to_see: usize = tests.len;
+    var failures: usize = 0;
+    var state: State = .nothing;
+    while (tests_to_see > 0) {
+        std.debug.print("Waiting for message\n", .{});
+        const msg: IPC.Message = switch (try server.receiveMessage(alloc)) {
+            .StreamClosed => unreachable, // Client died unexpectedly
+            .TimedOut => continue,
+            .Message => |msg| msg,
+        };
+        defer alloc.free(msg.bytes);
+
+        std.debug.print("Got message: {s}\n", .{@tagName(msg.header.tag)});
+
+        switch (msg.header.tag) {
+            .testStart => {
+                assert(state == .nothing);
+                state = .in_test;
+            },
+
+            .testSuccess => {
+                assert(state == .in_test);
+                tests_to_see -= 1;
+                state = .nothing;
+            },
+
+            .testFailure => {
+                assert(state == .in_test);
+                failures += 1;
+                tests_to_see -= 1;
+                state = .nothing;
+            },
+
+            .parameterizedStart => {
+                assert(state == .in_test);
+                state = .in_parameterized_test;
+            },
+
+            .parameterizedSuccess => {
+                assert(state == .in_parameterized_test);
+                state = .in_test;
+            },
+            .parameterizedSkipped => {
+                assert(state == .in_parameterized_test);
+                state = .in_test;
+            },
+
+            .parameterizedError => {
+                assert(state == .in_parameterized_test);
+                failures += 1;
+                state = .in_test;
+            },
+
+            .runTests,
+            .exit,
+            => unreachable, // May only be sent by the server
+
+            else => unreachable, // FIXME: remove
+        }
+    }
+
+    try server.serveExit();
+    const term = try child.wait();
+    std.debug.print("Process exit: {any}\n", .{term});
+}
+
+fn clientFn(alloc: Allocator) !void {
+    var client = IPC.Client.init(alloc);
+    defer client.deinit();
 
     var runner = TestRunner.initDefault();
     defer runner.deinit();
 
-    for (builtin.test_functions) |test_fn| {
-        runner.runTest(Test.initBuiltin(test_fn)) catch {};
-    }
+    loop: while (true) {
+        const msg: IPC.Message = switch (try client.receiveMessage(alloc)) {
+            .StreamClosed => unreachable, // Client should never die before the server
+            .TimedOut => continue,
+            .Message => |msg| msg,
+        };
+        defer alloc.free(msg.bytes);
+        assert(msg.bytes.len == msg.header.bytes_len);
 
-    try runner.printer.printResults();
-    // try runner.displayErrorCount();
+        switch (msg.header.tag) {
+            .exit => break :loop,
+
+            .runTests => {
+                assert(msg.header.bytes_len == @sizeOf(usize) * 2);
+
+                // const start_slice = msg.bytes[0..@sizeOf(usize)];
+                // const end_slice = msg.bytes[@sizeOf(usize)..];
+                //
+                // assert(start_slice.len == @sizeOf(usize));
+                // assert(end_slice.len == @sizeOf(usize));
+
+                const start_idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
+                const end_idx = std.mem.readInt(usize, msg.bytes[@sizeOf(usize)..(@sizeOf(usize) * 2)], .little);
+
+                for (builtin.test_functions[start_idx..end_idx], start_idx..end_idx) |test_fn, idx| {
+                    try client.serveTestStart(idx);
+
+                    const res = runner.runTest(Test.initBuiltin(test_fn)) catch
+                        @panic("Internal server error");
+
+                    if (res.err) |_| {
+                        // FIXME: Actually send over the error
+                        try client.serveTestFailure(idx);
+                    } else {
+                        try client.serveTestSuccess(idx);
+                    }
+                }
+
+                try runner.printer.printResults();
+            },
+
+            .parameterizedStart,
+            .parameterizedError,
+            .parameterizedSkipped,
+            .parameterizedSuccess,
+            .testStart,
+            .testSuccess,
+            .testFailure,
+            => unreachable, // May only be sent by client
+
+            else => unreachable, // FIXME: remove
+        }
+    }
 }
 
 test {
