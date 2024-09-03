@@ -53,13 +53,13 @@ test "server clean message" {
     const client = &setup.client;
 
     const server_message = "Hello from server";
-    try server.serveStringMessage(.rawString, server_message);
+    try server.serveStringMessage(.runTests, server_message);
 
     const message = try waitForMessageTimeout(client, msg_timeout);
     defer gpa.free(message.bytes);
 
     try expect(message).isEqualTo(Message{
-        .header = .{ .tag = .rawString, .bytes_len = server_message.len },
+        .header = .{ .tag = .runTests, .bytes_len = server_message.len },
         .bytes = server_message,
     });
 }
@@ -72,13 +72,13 @@ test "client clean message" {
     const client = &setup.client;
 
     const client_message = "Hello from client";
-    try client.serveStringMessage(.rawString, client_message);
+    try client.serveStringMessage(.runTests, client_message);
 
     const message = try waitForMessageTimeout(server, msg_timeout);
     defer gpa.free(message.bytes);
 
     try expect(message).isEqualTo(Message{
-        .header = .{ .tag = .rawString, .bytes_len = client_message.len },
+        .header = .{ .tag = .runTests, .bytes_len = client_message.len },
         .bytes = client_message,
     });
 }
@@ -94,7 +94,7 @@ test "server noisy message" {
     try stdin.writeAll("Noise");
 
     const server_message = "Hello from server";
-    try server.serveStringMessage(.rawString, server_message);
+    try server.serveStringMessage(.runTests, server_message);
 
     try stdin.writeAll("Noise");
 
@@ -102,7 +102,7 @@ test "server noisy message" {
     defer gpa.free(message.bytes);
 
     try expect(message).isEqualTo(Message{
-        .header = .{ .tag = .rawString, .bytes_len = server_message.len },
+        .header = .{ .tag = .runTests, .bytes_len = server_message.len },
         .bytes = server_message,
     });
 }
@@ -118,7 +118,7 @@ test "client noisy message" {
     try stdout.writeAll("Noise");
 
     const client_message = "Hello from client";
-    try client.serveStringMessage(.rawString, client_message);
+    try client.serveStringMessage(.runTests, client_message);
 
     try stdout.writeAll("Noise");
 
@@ -126,7 +126,7 @@ test "client noisy message" {
     defer gpa.free(message.bytes);
 
     try expect(message).isEqualTo(Message{
-        .header = .{ .tag = .rawString, .bytes_len = client_message.len },
+        .header = .{ .tag = .runTests, .bytes_len = client_message.len },
         .bytes = client_message,
     });
 }
@@ -139,13 +139,13 @@ test "active communication" {
     const client = &setup.client;
 
     const msg1_expected = "raw string";
-    try server.serveStringMessage(.rawString, msg1_expected);
+    try server.serveStringMessage(.runTests, msg1_expected);
 
     const msg1 = try waitForMessageTimeout(client, msg_timeout);
     defer gpa.free(msg1.bytes);
 
     try expect(msg1).isEqualTo(Message{
-        .header = .{ .tag = .rawString, .bytes_len = msg1_expected.len },
+        .header = .{ .tag = .runTests, .bytes_len = msg1_expected.len },
         .bytes = msg1_expected,
     });
 
@@ -183,13 +183,13 @@ test "server message with multithreaded noise" {
 
     const msg_string = "Hello from server";
     for (0..100) |_| {
-        try server.serveStringMessage(.rawString, msg_string);
+        try server.serveStringMessage(.runTests, msg_string);
 
         const msg = try waitForMessageTimeout(client, msg_timeout);
         defer gpa.free(msg.bytes);
 
         try expect(msg).isEqualTo(.{
-            .header = .{ .tag = .rawString, .bytes_len = msg_string.len },
+            .header = .{ .tag = .runTests, .bytes_len = msg_string.len },
             .bytes = msg_string,
         });
     }
@@ -212,13 +212,13 @@ test "client message with multithreaded noise" {
 
     const msg_string = "Hello from client";
     for (0..100) |_| {
-        try client.serveStringMessage(.rawString, msg_string);
+        try client.serveStringMessage(.runTests, msg_string);
 
         const msg = try waitForMessageTimeout(server, msg_timeout);
         defer gpa.free(msg.bytes);
 
         try expect(msg).isEqualTo(.{
-            .header = .{ .tag = .rawString, .bytes_len = msg_string.len },
+            .header = .{ .tag = .runTests, .bytes_len = msg_string.len },
             .bytes = msg_string,
         });
     }
