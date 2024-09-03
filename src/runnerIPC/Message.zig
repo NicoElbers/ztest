@@ -9,8 +9,6 @@ pub const Header = packed struct(u64) {
 };
 
 pub const Tag = enum(u32) {
-    rawString, // TODO : remove, because not useful
-
     /// Has no body, can only be sent by server
     exit,
 

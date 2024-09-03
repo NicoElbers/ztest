@@ -240,8 +240,6 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
             .runTests,
             .exit,
             => unreachable, // May only be sent by the server
-
-            else => unreachable, // FIXME: remove
         }
     }
 
@@ -272,12 +270,6 @@ fn clientFn(alloc: Allocator) !void {
             .runTests => {
                 assert(msg.header.bytes_len == @sizeOf(usize) * 2);
 
-                // const start_slice = msg.bytes[0..@sizeOf(usize)];
-                // const end_slice = msg.bytes[@sizeOf(usize)..];
-                //
-                // assert(start_slice.len == @sizeOf(usize));
-                // assert(end_slice.len == @sizeOf(usize));
-
                 const start_idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
                 const end_idx = std.mem.readInt(usize, msg.bytes[@sizeOf(usize)..(@sizeOf(usize) * 2)], .little);
 
@@ -306,8 +298,6 @@ fn clientFn(alloc: Allocator) !void {
             .testSuccess,
             .testFailure,
             => unreachable, // May only be sent by client
-
-            else => unreachable, // FIXME: remove
         }
     }
 }
