@@ -18,13 +18,7 @@ test "server timeout" {
     // Wait for one second
     const res = waitForMessageTimeout(server, msg_timeout);
 
-    // try expect(res).isError(@errorCast(error.MessageTookTooLong));
-    // https://github.com/ziglang/zig/issues/21222
-    _ = res catch |err| switch (err) {
-        error.MessageTookTooLong => return,
-        else => return err,
-    };
-    return error.NotAnError;
+    try expect(res).isError(error.MessageTookTooLong);
 }
 
 test "client timeout" {
@@ -36,13 +30,7 @@ test "client timeout" {
     // Wait for one second
     const res = waitForMessageTimeout(client, msg_timeout);
 
-    // try expect(res).isError(@errorCast(error.MessageTookTooLong));
-    // https://github.com/ziglang/zig/issues/21222
-    _ = res catch |err| switch (err) {
-        error.MessageTookTooLong => return,
-        else => return err,
-    };
-    return error.NotAnError;
+    try expect(res).isError(error.MessageTookTooLong);
 }
 
 test "server clean message" {
@@ -277,14 +265,36 @@ pub fn makeDummyClient(child_stdin: File, child_stdout: File) Client {
     };
 }
 
-pub fn waitForMessageTimeout(node: anytype, timeout_ns: u64) !Message {
+pub const WaitError = error{
+    Unexpected,
+    OutOfMemory,
+    InputOutput,
+    AccessDenied,
+    BrokenPipe,
+    SystemResources,
+    OperationAborted,
+    WouldBlock,
+    ConnectionResetByPeer,
+    IsDir,
+    ConnectionTimedOut,
+    NotOpenForReading,
+    SocketNotConnected,
+    Canceled,
+    Unsupported,
+    StreamClosed,
+    IncompleteMessage,
+    NetworkSubsystemFailed,
+    MessageTookTooLong,
+};
+
+pub fn waitForMessageTimeout(node: anytype, timeout_ns: u64) WaitError!Message {
     const Instant = std.time.Instant;
     const timer = try Instant.now();
     while ((try Instant.now()).since(timer) <= timeout_ns) {
         switch (try node.receiveMessage(gpa)) {
-            .StreamClosed => return error.StreamClosed,
-            .TimedOut => continue,
-            .Message => |msg| return msg,
+            .streamClosed => return error.StreamClosed,
+            .timedOut => continue,
+            .message => |msg| return msg,
         }
     }
     return error.MessageTookTooLong;
