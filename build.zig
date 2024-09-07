@@ -60,6 +60,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    addMultiTest(b, test_step, &.{ztest_mod}, .{
+        .name = "Runner tests",
+        .root_source_file = b.path("tests/ztest-runner/tests.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 }
 
 fn makeModule(b: *Build, name: []const u8, deps: []const NamedModule, options: Module.CreateOptions) NamedModule {
