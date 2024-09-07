@@ -1,10 +1,15 @@
 pub const timeout_ns = time.ns_per_ms * 5;
 
 pub const ReadStatus = union(enum) {
-    StreamClosed: void,
-    TimedOut: void,
-    ReadLen: usize,
-    DelimeterEnd: usize,
+    streamClosed: void,
+    timedOut: void,
+    readLen: usize,
+};
+
+pub const DelimeterStatus = union(enum) {
+    streamClosed: void,
+    timedOut: void,
+    delimeterFound: usize,
 };
 
 /// Shared delim reader for both the client and the server.
@@ -16,19 +21,15 @@ pub fn readUntilDelimeter(
     comptime delimeter: []const u8,
     to_check: *std.ArrayList(u8),
     checked_ptr: *usize,
-) !ReadStatus {
+) !DelimeterStatus {
     comptime assert(delimeter.len > 0);
 
-    var total_len_read: usize = 0;
     while (true) {
         if (checked_ptr.* >= to_check.items.len -| delimeter.len) {
             switch (try streamer.read()) {
-                .ReadLen => |len| total_len_read += len,
-                .TimedOut => if (total_len_read == 0)
-                    return .TimedOut
-                else
-                    return .{ .ReadLen = total_len_read },
-                else => |status| return status,
+                .readLen => continue,
+                .timedOut => return .timedOut,
+                .streamClosed => return .streamClosed,
             }
         }
 
@@ -45,7 +46,7 @@ pub fn readUntilDelimeter(
             }
 
             checked_ptr.* += start_ptr + delimeter.len;
-            return .{ .DelimeterEnd = checked_ptr.* };
+            return .{ .delimeterFound = checked_ptr.* };
         }
 
         checked_ptr.* += unseen_slice.len - delimeter.len + 1;

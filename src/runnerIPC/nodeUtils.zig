@@ -1,7 +1,7 @@
 pub const MessageStatus = union(enum) {
-    Message: Message,
-    StreamClosed: void,
-    TimedOut: void,
+    streamClosed: void,
+    timedOut: void,
+    message: Message,
 };
 
 pub fn serveMessage(
@@ -43,16 +43,16 @@ pub fn receiveMessage(
     const Header = Message.Header;
 
     const pos = switch (try streamer_ptr.readUntilDelimeter(&IPC.special_message_start_key)) {
-        .DelimeterEnd => |pos| pos,
-        .StreamClosed => return .StreamClosed,
-        else => return .TimedOut,
+        .delimeterFound => |pos| pos,
+        .streamClosed => return .streamClosed,
+        .timedOut => return .timedOut,
     };
 
     var is_last_round = false;
     const header: Header = blk: while (true) {
         switch (try streamer_ptr.read()) {
-            .StreamClosed => {
-                if (is_last_round) return .StreamClosed;
+            .streamClosed => {
+                if (is_last_round) return .streamClosed;
                 is_last_round = true;
             },
             else => {},
@@ -79,8 +79,8 @@ pub fn receiveMessage(
     const bytes_pos = pos + @sizeOf(Header);
     while (true) {
         switch (try streamer_ptr.read()) {
-            .StreamClosed => {
-                if (is_last_round) return .StreamClosed;
+            .streamClosed => {
+                if (is_last_round) return .streamClosed;
                 is_last_round = true;
             },
             else => {},
@@ -93,7 +93,7 @@ pub fn receiveMessage(
         const bytes = try alloc.alloc(u8, header.bytes_len);
         @memcpy(bytes, after_slice[0..header.bytes_len]);
 
-        return .{ .Message = Message{ .header = header, .bytes = bytes } };
+        return .{ .message = Message{ .header = header, .bytes = bytes } };
     }
 
     return error.IncompleteMessage;

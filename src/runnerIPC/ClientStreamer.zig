@@ -49,15 +49,15 @@ pub fn read(self: *ClientStreamer) Error!ReadStatus {
         }
     }
 
-    if (total_len_read == 0 and !should_keep_polling) return .StreamClosed;
-    if (total_len_read == 0) return .TimedOut;
+    if (total_len_read == 0 and !should_keep_polling) return .streamClosed;
+    if (total_len_read == 0) return .timedOut;
 
-    return .{ .ReadLen = total_len_read };
+    return .{ .readLen = total_len_read };
 }
 
 /// Polls until a delimeter is found, the last poll returned nothing or the stream has ended.
 /// If a delimeter is found, returns the index after the delimeter
-pub inline fn readUntilDelimeter(self: *ClientStreamer, comptime delimeter: []const u8) Error!ReadStatus {
+pub inline fn readUntilDelimeter(self: *ClientStreamer, comptime delimeter: []const u8) Error!DelimeterStatus {
     return try streamerUtils.readUntilDelimeter(
         self,
         delimeter,
@@ -77,6 +77,7 @@ fn print(comptime fmt: []const u8, args: anytype) void {
 const ClientStreamer = @This();
 
 const ReadStatus = streamerUtils.ReadStatus;
+const DelimeterStatus = streamerUtils.DelimeterStatus;
 const Allocator = std.mem.Allocator;
 const File = std.fs.File;
 const timeout_ns = streamerUtils.timeout_ns;
