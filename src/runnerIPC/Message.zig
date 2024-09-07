@@ -43,7 +43,7 @@ pub const Tag = enum(u32) {
 };
 
 pub const ParameterizedError = packed struct(u32) {
-    /// error name length, after start
+    /// error name length, first item
     error_name_len: u16,
 
     /// stack trace len, after error name

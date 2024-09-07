@@ -190,9 +190,9 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
     while (tests_to_see > 0) {
         std.debug.print("Waiting for message\n", .{});
         const msg: IPC.Message = switch (try server.receiveMessage(alloc)) {
-            .StreamClosed => unreachable, // Client died unexpectedly
-            .TimedOut => continue,
-            .Message => |msg| msg,
+            .streamClosed => unreachable, // Client died unexpectedly
+            .timedOut => continue,
+            .message => |msg| msg,
         };
         defer alloc.free(msg.bytes);
 
@@ -257,9 +257,9 @@ fn clientFn(alloc: Allocator) !void {
 
     loop: while (true) {
         const msg: IPC.Message = switch (try client.receiveMessage(alloc)) {
-            .StreamClosed => unreachable, // Client should never die before the server
-            .TimedOut => continue,
-            .Message => |msg| msg,
+            .streamClosed => unreachable, // Client should never die before the server
+            .timedOut => continue,
+            .message => |msg| msg,
         };
         defer alloc.free(msg.bytes);
         assert(msg.bytes.len == msg.header.bytes_len);

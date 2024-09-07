@@ -95,6 +95,15 @@ pub fn serveParameterizedSuccess(client: *Client) !void {
     try client.serveMessage(header, &.{});
 }
 
+pub fn serveParameterizedSkipped(client: *Client) !void {
+    const header = Message.Header{
+        .tag = .parameterizedSkipped,
+        .bytes_len = 0,
+    };
+
+    try client.serveMessage(header, &.{});
+}
+
 pub fn serveParameterizedError(client: *Client, error_name: []const u8, stacktrace_str: []const u8) !void {
     const len: usize = @sizeOf(Message.ParameterizedError) + error_name.len + stacktrace_str.len;
 
