@@ -24,7 +24,11 @@ pub const Tag = enum(u32) {
     /// Can only be sent by the client.
     testSuccess,
 
-    /// Body consists of 1 usize, indicating the index of the test that succeeded.
+    /// Body consists of 1 usize, indicating the index of the test that was skipped.
+    /// Can only be sent by the client.
+    testSkipped,
+
+    /// Body consists TestFailure struct which explains the rest of the body,
     /// Can only be sent by the client.
     testFailure,
 
@@ -40,6 +44,14 @@ pub const Tag = enum(u32) {
 
     /// Has no body, can only be sent by client
     parameterizedSuccess,
+};
+
+pub const TestFailure = packed struct(u64) {
+    /// The test index that failed, first item
+    test_idx: u32,
+
+    /// The error name length, after test_idx
+    error_name_len: u32,
 };
 
 pub const ParameterizedError = packed struct(u32) {

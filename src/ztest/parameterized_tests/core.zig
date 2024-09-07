@@ -31,9 +31,15 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
             if (util.isUsingZtestRunner) {
                 try client.serveParameterizedSuccess();
             }
-        } else |err| {
-            if (err != error.SkipZigTest) {
+        } else |err| switch (err) {
+            error.ZigSkipTest => {
+                if (util.isUsingZtestRunner) {
+                    try client.serveParameterizedSkipped();
+                }
+            },
+            else => {
                 any_failed = true;
+
                 if (util.isUsingZtestRunner) {
                     var buf: [1024]u8 = undefined;
 
@@ -43,11 +49,13 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
                     // get individual traces per parameterized test
                     const st_str = if (stack_trace) |st| blk: {
                         break :blk try std.fmt.bufPrint(&buf, "{any}", .{st});
-                    } else "";
+                    } else blk: {
+                        break :blk try std.fmt.bufPrint(&buf, "No stacktrace", .{});
+                    };
 
                     try client.serveParameterizedError(@errorName(err), st_str);
                 }
-            }
+            },
         }
     }
 
@@ -242,3 +250,4 @@ test "comptime" {
         .{u32},
     });
 }
+

@@ -75,6 +75,17 @@ pub fn serveTestFailure(client: *Client, idx: usize) !void {
     });
 }
 
+pub fn serveTestSkipped(client: *Client, idx: usize) !void {
+    const header = Message.Header{
+        .tag = .testSkipped,
+        .bytes_len = @sizeOf(usize),
+    };
+
+    try client.serveMessage(header, &.{
+        std.mem.asBytes(&idx),
+    });
+}
+
 pub fn serveParameterizedStart(client: *Client, args_str: []const u8) !void {
     const header = Message.Header{
         .tag = .parameterizedStart,

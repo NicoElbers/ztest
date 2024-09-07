@@ -1,21 +1,4 @@
-// TODO: Structure this file out over multiple files so that everything is more ledgeable
-
-const std = @import("std");
-const IPC = @import("runnerIPC/root.zig");
-const builtin = @import("builtin");
-const native_os = builtin.os.tag;
-
-const assert = std.debug.assert;
-
-const io = std.io;
-const colors = io.tty;
-const windows = std.os.windows;
-
-const ResultPrinter = @import("ResultPrinter.zig");
-const File = std.fs.File;
-const Allocator = std.mem.Allocator;
-
-const BuiltinTestFn = std.builtin.TestFn;
+const debug = false;
 
 // Compatibility with std runner
 
@@ -76,54 +59,6 @@ pub const Test = struct {
     }
 };
 
-pub const TestRunner = struct {
-    alloc: Allocator,
-    printer: ResultPrinter,
-    error_count: usize = 0,
-
-    const Self = @This();
-
-    pub const TestReturn = struct { err: ?anyerror };
-
-    pub fn initDefault() TestRunner {
-        const output_file = std.io.getStdOut();
-        const alloc = std.testing.allocator;
-        const printer = ResultPrinter.init(alloc, output_file);
-
-        return TestRunner{
-            .alloc = alloc,
-            .printer = printer,
-        };
-    }
-
-    pub fn deinit(self: *TestRunner) void {
-        self.printer.deinit();
-    }
-
-    pub fn runTest(self: *Self, tst: Test) !TestReturn {
-        self.printer.initTest(tst.name, null);
-
-        // FIXME: I'm not using test res anymore, simplify
-        const res = tst.run();
-
-        const status: ResultPrinter.TestInformation.Status = blk: {
-            res.raw_result catch |err| switch (err) {
-                error.SkipZigTest => break :blk .skipped,
-                else => break :blk .{ .failed = err },
-            };
-            break :blk .passed;
-        };
-
-        self.printer.updateTest(tst.name, status);
-
-        if (res.raw_result) {
-            return .{ .err = null };
-        } else |err| {
-            return .{ .err = err };
-        }
-    }
-};
-
 // ---- Internal representation for results ----
 
 // TODO: Rename to TestResult
@@ -168,6 +103,23 @@ pub fn main() !void {
 }
 
 fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
+    const State = union(enum) {
+        nothing,
+
+        /// Usize represents the index into builtin.test_functions
+        in_test: usize,
+
+        /// Usize represents the index into builtin.test_functions or parent test
+        in_parameterized_test: usize,
+    };
+
+    const tests = builtin.test_functions;
+
+    const out_file = std.io.getStdOut();
+
+    var res_printer = try ResultPrinter.init(alloc, tests.len, out_file);
+    defer res_printer.deinit();
+
     var child = std.process.Child.init(&.{ argv0, @tagName(Args.@"--client") }, alloc);
     child.stdin_behavior = .Pipe;
     child.stdout_behavior = .Pipe;
@@ -179,16 +131,13 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
     var server = IPC.Server.init(alloc, child);
     defer server.deinit();
 
-    const tests = builtin.test_functions;
     try server.serveRunTest(0, tests.len);
-
-    const State = enum { nothing, in_test, in_parameterized_test };
 
     var tests_to_see: usize = tests.len;
     var failures: usize = 0;
     var state: State = .nothing;
+
     while (tests_to_see > 0) {
-        std.debug.print("Waiting for message\n", .{});
         const msg: IPC.Message = switch (try server.receiveMessage(alloc)) {
             .streamClosed => unreachable, // Client died unexpectedly
             .timedOut => continue,
@@ -196,22 +145,60 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
         };
         defer alloc.free(msg.bytes);
 
-        std.debug.print("Got message: {s}\n", .{@tagName(msg.header.tag)});
+        if (debug)
+            std.debug.print("Got {s}\n", .{@tagName(msg.header.tag)});
 
         switch (msg.header.tag) {
             .testStart => {
                 assert(state == .nothing);
-                state = .in_test;
+
+                assert(msg.bytes.len == @sizeOf(usize));
+                const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
+
+                res_printer.initTest(idx);
+
+                state = .{ .in_test = idx };
             },
 
             .testSuccess => {
                 assert(state == .in_test);
+
+                assert(msg.bytes.len == @sizeOf(usize));
+                const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
+
+                res_printer.updateTest(idx, .passed);
+
+                tests_to_see -= 1;
+                state = .nothing;
+            },
+
+            .testSkipped => {
+                assert(state == .in_test);
+
+                assert(msg.bytes.len == @sizeOf(usize));
+                const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
+
+                res_printer.updateTest(idx, .skipped);
+
                 tests_to_see -= 1;
                 state = .nothing;
             },
 
             .testFailure => {
+                const Failure = Message.TestFailure;
+                const size = @sizeOf(Failure);
+
                 assert(state == .in_test);
+
+                assert(msg.bytes.len >= size);
+                const failure: Failure = @bitCast(msg.bytes[0..size].*);
+
+                assert(msg.bytes.len == size + failure.error_name_len);
+                const error_name = msg.bytes[size..(size + failure.error_name_len)];
+                _ = error_name;
+
+                res_printer.updateTest(failure.test_idx, .{ .failed = error.TODO });
+
                 failures += 1;
                 tests_to_see -= 1;
                 state = .nothing;
@@ -219,28 +206,53 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
             .parameterizedStart => {
                 assert(state == .in_test);
-                state = .in_parameterized_test;
+
+                const idx = state.in_test;
+
+                const args_fmt = msg.bytes;
+
+                try res_printer.initParameterizedTest(idx, args_fmt);
+
+                state = .{ .in_parameterized_test = idx };
             },
 
             .parameterizedSuccess => {
                 assert(state == .in_parameterized_test);
-                state = .in_test;
+
+                const idx = state.in_parameterized_test;
+
+                res_printer.updateLastPtest(idx, .passed);
+
+                state = .{ .in_test = idx };
             },
             .parameterizedSkipped => {
                 assert(state == .in_parameterized_test);
-                state = .in_test;
+
+                const idx = state.in_parameterized_test;
+
+                res_printer.updateLastPtest(idx, .skipped);
+
+                state = .{ .in_test = idx };
             },
 
             .parameterizedError => {
                 assert(state == .in_parameterized_test);
+
+                const idx = state.in_parameterized_test;
+
+                res_printer.updateLastPtest(idx, .{ .failed = error.TODO });
+
                 failures += 1;
-                state = .in_test;
+                state = .{ .in_test = idx };
             },
 
             .runTests,
             .exit,
             => unreachable, // May only be sent by the server
         }
+
+        if (!debug)
+            try res_printer.printResults(tests);
     }
 
     try server.serveExit();
@@ -251,9 +263,6 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 fn clientFn(alloc: Allocator) !void {
     var client = IPC.Client.init(alloc);
     defer client.deinit();
-
-    var runner = TestRunner.initDefault();
-    defer runner.deinit();
 
     loop: while (true) {
         const msg: IPC.Message = switch (try client.receiveMessage(alloc)) {
@@ -276,18 +285,16 @@ fn clientFn(alloc: Allocator) !void {
                 for (builtin.test_functions[start_idx..end_idx], start_idx..end_idx) |test_fn, idx| {
                     try client.serveTestStart(idx);
 
-                    const res = runner.runTest(Test.initBuiltin(test_fn)) catch
-                        @panic("Internal server error");
+                    test_fn.func() catch |err| {
+                        switch (err) {
+                            error.ZigSkipTest => try client.serveTestSkipped(idx),
+                            else => try client.serveTestFailure(idx),
+                        }
+                        continue;
+                    };
 
-                    if (res.err) |_| {
-                        // FIXME: Actually send over the error
-                        try client.serveTestFailure(idx);
-                    } else {
-                        try client.serveTestSuccess(idx);
-                    }
+                    try client.serveTestSuccess(idx);
                 }
-
-                try runner.printer.printResults();
             },
 
             .parameterizedStart,
@@ -296,6 +303,7 @@ fn clientFn(alloc: Allocator) !void {
             .parameterizedSuccess,
             .testStart,
             .testSuccess,
+            .testSkipped,
             .testFailure,
             => unreachable, // May only be sent by client
         }
@@ -306,3 +314,21 @@ test {
     _ = @import("Printer.zig");
     _ = @import("ResultPrinter.zig");
 }
+
+const std = @import("std");
+const IPC = @import("runnerIPC/root.zig");
+const builtin = @import("builtin");
+const native_os = builtin.os.tag;
+
+const assert = std.debug.assert;
+
+const io = std.io;
+const colors = io.tty;
+const windows = std.os.windows;
+
+const ResultPrinter = @import("ResultPrinter.zig");
+const File = std.fs.File;
+const Allocator = std.mem.Allocator;
+const Message = IPC.Message;
+
+const BuiltinTestFn = std.builtin.TestFn;
