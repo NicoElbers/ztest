@@ -95,3 +95,9 @@ pub fn loadCursorPosition(self: Self) WriterError!void {
 
     try self.writeAll("\x1b[u");
 }
+
+pub fn clearBelow(self: Self) WriterError!void {
+    std.debug.assert(self.ansi_support);
+
+    try self.writeAll("\x1b[0J");
+}
