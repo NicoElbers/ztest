@@ -1,10 +1,10 @@
 printer: Printer,
 alloc: Allocator,
-tests: []?TestInformation,
+tests: []TestInformation,
 ptests: std.ArrayList(ParameterizedInformation),
 printed_lines: u15,
 
-pub const Status = union(enum) { busy, passed, skipped, failed: anyerror };
+pub const Status = union(enum) { waiting, busy, passed, skipped, failed: anyerror };
 
 pub const TestInformation = struct {
     status: Status,
@@ -35,8 +35,8 @@ pub fn init(alloc: Allocator, test_amount: usize, output_file: File) !Self {
 
     // We can prealloc this because we get all the top level tests at comptime,
     // however for testability reasons, I still want to allocate at runtime
-    const tests = try alloc.alloc(?TestInformation, test_amount);
-    @memset(tests, null);
+    const tests = try alloc.alloc(TestInformation, test_amount);
+    @memset(tests, .{ .status = .waiting, .ptests = std.ArrayList(usize).init(alloc) });
 
     return Self{
         .printer = printer,
@@ -54,23 +54,11 @@ pub fn deinit(self: *Self) void {
     self.ptests.deinit();
 
     for (self.tests) |*tst| {
-        if (tst.*) |*t| {
-            t.deinit();
-        }
+        tst.deinit();
     }
 
     self.alloc.free(self.tests);
     self.* = undefined;
-}
-
-pub fn initTest(self: *Self, test_idx: usize) void {
-    assert(test_idx < self.tests.len);
-    assert(self.tests[test_idx] == null);
-
-    self.tests[test_idx] = .{
-        .status = .busy,
-        .ptests = std.ArrayList(usize).init(self.alloc),
-    };
 }
 
 pub fn initParameterizedTest(
@@ -79,9 +67,9 @@ pub fn initParameterizedTest(
     args_fmt: []const u8,
 ) !void {
     assert(parent_test_idx < self.tests.len);
-    assert(self.tests[parent_test_idx] != null);
+    assert(self.tests[parent_test_idx].status == .busy);
 
-    try self.tests[parent_test_idx].?.ptests.append(self.ptests.items.len);
+    try self.tests[parent_test_idx].ptests.append(self.ptests.items.len);
 
     try self.ptests.append(.{
         .args_fmt = try self.alloc.dupe(u8, args_fmt),
@@ -92,17 +80,18 @@ pub fn initParameterizedTest(
 
 pub fn updateTest(self: Self, test_idx: usize, status: Status) void {
     assert(test_idx < self.tests.len);
-    assert(self.tests[test_idx] != null);
 
-    self.tests[test_idx].?.status = status;
+    self.tests[test_idx].status = status;
 }
 
 pub fn updateLastPtest(self: *Self, parent_test_idx: usize, status: Status) void {
     assert(parent_test_idx < self.tests.len);
-    assert(self.tests[parent_test_idx] != null);
 
-    const parent = self.tests[parent_test_idx].?;
+    const parent = self.tests[parent_test_idx];
+
+    assert(parent.ptests.items.len != 0);
     const idx = parent.ptests.items[parent.ptests.items.len - 1];
+
     self.ptests.items[idx].status = status;
 }
 
@@ -112,40 +101,58 @@ pub fn printResults(self: *Self, tests: []const std.builtin.TestFn) !void {
 
     try self.clearPrinted();
 
-    for (self.tests, 0..) |test_maybe, idx| {
+    for (self.tests, 0..) |test_info, idx| {
         const test_name = tests[idx].name;
         try printer.writeAll(test_name);
         try printer.writeAll(": ");
 
-        if (test_maybe) |test_info| {
-            switch (test_info.status) {
-                .busy => {
-                    try printer.setColor(.dim);
-                    try printer.writeAll("busy");
-                },
-                .passed => {
-                    try printer.setColor(.bright_green);
-                    try printer.writeAll("passed");
-                },
-                .skipped => {
-                    try printer.setColor(.bright_yellow);
-                    try printer.writeAll("skipped");
-                },
-                .failed => |err| {
-                    try printer.setColor(.red);
-                    try printer.writeAll("failed (");
-                    try printer.writeAll(@errorName(err));
-                    try printer.writeAll(")");
-                },
-            }
-        } else {
+        try printStatus(printer, test_info.status);
+
+        ptest_loop: for (test_info.ptests.items) |ptest_info_idx| {
+            const ptest_info = self.ptests.items[ptest_info_idx];
+
+            if (ptest_info.status == .passed or
+                ptest_info.status == .busy)
+                continue :ptest_loop;
+
+            try self.newLine();
+
+            try printer.writeAll("  ");
             try printer.setColor(.dim);
-            try printer.writeAll("waiting");
+            try printer.writeAll(ptest_info.args_fmt);
+            try printer.setColor(.reset);
+            try printer.writeAll(" ");
+            try printStatus(printer, ptest_info.status);
         }
 
-        try printer.setColor(.reset);
         try self.newLine();
     }
+}
+
+fn printStatus(printer: *Printer, status: Status) !void {
+    switch (status) {
+        .waiting,
+        .busy,
+        => {
+            try printer.setColor(.dim);
+            try printer.writeAll(@tagName(status));
+        },
+        .passed => {
+            try printer.setColor(.bright_green);
+            try printer.writeAll("passed");
+        },
+        .skipped => {
+            try printer.setColor(.bright_yellow);
+            try printer.writeAll("skipped");
+        },
+        .failed => |err| {
+            try printer.setColor(.red);
+            try printer.writeAll("failed (");
+            try printer.writeAll(@errorName(err));
+            try printer.writeAll(")");
+        },
+    }
+    try printer.setColor(.reset);
 }
 
 fn newLine(self: *Self) !void {
