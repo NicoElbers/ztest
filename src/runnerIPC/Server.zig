@@ -97,6 +97,7 @@ pub fn receiveMessage(self: *Server, alloc: Allocator) ReceiveError!MessageStatu
         alloc,
         &self.process_streamer,
         &self.process_streamer.stdout_content,
+        &self.process_streamer.delim_checked_ptr,
     );
 }
 
