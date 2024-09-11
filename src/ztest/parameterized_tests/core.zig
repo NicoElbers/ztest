@@ -31,7 +31,7 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
             if (util.isUsingZtestRunner) {
                 try client.serveParameterizedSuccess();
             }
-        } else |err| switch (err) {
+        } else |err| switch (@as(anyerror, @errorCast(err))) {
             error.ZigSkipTest => {
                 if (util.isUsingZtestRunner) {
                     try client.serveParameterizedSkipped();
@@ -250,4 +250,3 @@ test "comptime" {
         .{u32},
     });
 }
-
