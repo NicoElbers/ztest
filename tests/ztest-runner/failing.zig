@@ -2,10 +2,28 @@
 // TEST: Make sure to test that the output to stdout is correct.
 // TEST: Make sure that I can print to stdout and stderr in my tests.
 
-test "failure" {
+const ztest = @import("ztest");
+
+fn fail() !void {
     return error.Err;
 }
 
-test "skip" {
+test "failure" {
+    try ztest.parameterizedTest(fail, .{
+        .{},
+    });
+
+    try fail();
+}
+
+pub fn skip() !void {
     return error.ZigSkipTest;
+}
+
+test "skip" {
+    try ztest.parameterizedTest(skip, .{
+        .{},
+    });
+
+    try skip();
 }
