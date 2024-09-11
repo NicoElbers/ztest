@@ -102,7 +102,12 @@ fn writeLines(writer: anytype, prefix: []const u8, slice: []const u8) !void {
 
         if (char != '\n' and diff < max_line_width) continue;
 
-        const end_idx = if (last_space_idx > last_idx) last_space_idx else idx;
+        const end_idx = if (char == '\n')
+            idx
+        else if (last_space_idx > last_idx)
+            last_space_idx
+        else
+            idx;
 
         const sub_slice = slice[last_idx..end_idx];
 
