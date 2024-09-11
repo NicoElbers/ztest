@@ -12,9 +12,9 @@ pub const Tag = enum(u32) {
     /// Has no body, can only be sent by server
     exit,
 
-    /// Body consists of 2 usizes, the first the start index in builtin.test_functions
-    /// and the second the end index (exclusive). Can only be sent by the server
-    runTests,
+    /// Body consists of 1 usize, representing index in builtin.test_functions
+    /// Can only be sent by the server
+    runTest,
 
     /// Body consists of 1 usize, indicating the index of the test being run.
     /// Can only be sent by the client.
