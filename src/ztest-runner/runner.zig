@@ -158,7 +158,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
         defer alloc.free(msg.bytes);
 
         if (debug)
-            dbg("Got {s}", .{@tagName(msg.header.tag)});
+            dbg("Got {any}", .{msg});
 
         switch (msg.header.tag) {
             .testStart => {
@@ -167,7 +167,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 assert(msg.bytes.len == @sizeOf(usize));
                 const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
 
-                res_printer.updateTest(idx, .busy);
+                res_printer.updateTestStatus(idx, .busy);
 
                 state = .{ .running_test = idx };
             },
@@ -178,7 +178,12 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 assert(msg.bytes.len == @sizeOf(usize));
                 const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
 
-                res_printer.updateTest(idx, .passed);
+                res_printer.updateTestStatus(idx, .passed);
+
+                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                defer res_printer.alloc.free(logs);
+
+                try res_printer.addTestLogs(test_idx, logs);
 
                 test_idx += 1;
                 state = .nothing;
@@ -190,7 +195,12 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 assert(msg.bytes.len == @sizeOf(usize));
                 const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
 
-                res_printer.updateTest(idx, .skipped);
+                res_printer.updateTestStatus(idx, .skipped);
+
+                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                defer res_printer.alloc.free(logs);
+
+                try res_printer.addTestLogs(idx, logs);
 
                 test_idx += 1;
                 state = .nothing;
@@ -209,7 +219,12 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 const error_name = msg.bytes[size..(size + failure.error_name_len)];
                 _ = error_name;
 
-                res_printer.updateTest(failure.test_idx, .{ .failed = error.TODO });
+                res_printer.updateTestStatus(failure.test_idx, .{ .failed = error.TODO });
+
+                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                defer res_printer.alloc.free(logs);
+
+                try res_printer.addTestLogs(test_idx, logs);
 
                 failures += 1;
                 test_idx += 1;
@@ -233,7 +248,12 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 const idx = state.running_parameterized_test;
 
-                res_printer.updateLastPtest(idx, .passed);
+                res_printer.updateLastPtestStatus(idx, .passed);
+
+                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                defer res_printer.alloc.free(logs);
+
+                try res_printer.addLastPtestLogs(test_idx, logs);
 
                 state = .{ .running_test = idx };
             },
@@ -242,7 +262,12 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 const idx = state.running_parameterized_test;
 
-                res_printer.updateLastPtest(idx, .skipped);
+                res_printer.updateLastPtestStatus(idx, .skipped);
+
+                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                defer res_printer.alloc.free(logs);
+
+                try res_printer.addLastPtestLogs(test_idx, logs);
 
                 state = .{ .running_test = idx };
             },
@@ -252,8 +277,13 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 const idx = state.running_parameterized_test;
 
-                res_printer.updateTest(idx, .{ .failed = error.TODO });
-                res_printer.updateLastPtest(idx, .{ .failed = error.TODO });
+                res_printer.updateTestStatus(idx, .{ .failed = error.TODO });
+                res_printer.updateLastPtestStatus(idx, .{ .failed = error.TODO });
+
+                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                defer res_printer.alloc.free(logs);
+
+                try res_printer.addLastPtestLogs(test_idx, logs);
 
                 failures += 1;
                 state = .{ .running_test = idx };

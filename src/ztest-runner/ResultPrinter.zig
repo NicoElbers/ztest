@@ -12,20 +12,25 @@ pub const TestInformation = struct {
     /// Represents the index into the ptest array where the parameterized test
     /// can be found
     ptests: std.ArrayList(usize),
+    logs: std.ArrayList(u8),
 
     pub fn deinit(self: *TestInformation) void {
         self.ptests.deinit();
+        self.logs.deinit();
+
         self.* = undefined;
     }
 };
 
 pub const ParameterizedInformation = struct {
-    args_fmt: []const u8,
-    parent_test_idx: usize,
     status: Status,
+    parent_test_idx: usize,
+    args_fmt: []const u8,
+    logs: std.ArrayList(u8),
 
     pub fn deinit(self: *ParameterizedInformation, alloc: Allocator) void {
         alloc.free(self.args_fmt);
+        self.logs.deinit();
         self.* = undefined;
     }
 };
@@ -36,7 +41,11 @@ pub fn init(alloc: Allocator, test_amount: usize, output_file: File) !Self {
     // We can prealloc this because we get all the top level tests at comptime,
     // however for testability reasons, I still want to allocate at runtime
     const tests = try alloc.alloc(TestInformation, test_amount);
-    @memset(tests, .{ .status = .waiting, .ptests = .init(alloc) });
+    @memset(tests, .{
+        .status = .waiting,
+        .ptests = .init(alloc),
+        .logs = .init(alloc),
+    });
 
     return Self{
         .printer = printer,
@@ -61,6 +70,8 @@ pub fn deinit(self: *Self) void {
     self.* = undefined;
 }
 
+// TODO: Maybe try to return an index, and do something like the compiler does
+// where you use a non exhaustive enum
 pub fn initParameterizedTest(
     self: *Self,
     parent_test_idx: usize,
@@ -72,19 +83,27 @@ pub fn initParameterizedTest(
     try self.tests[parent_test_idx].ptests.append(self.ptests.items.len);
 
     try self.ptests.append(.{
-        .args_fmt = try self.alloc.dupe(u8, args_fmt),
-        .parent_test_idx = parent_test_idx,
         .status = .busy,
+        .parent_test_idx = parent_test_idx,
+        .args_fmt = try self.alloc.dupe(u8, args_fmt),
+        .logs = .init(self.alloc),
     });
 }
 
-pub fn updateTest(self: Self, test_idx: usize, status: Status) void {
+pub fn updateTestStatus(self: Self, test_idx: usize, status: Status) void {
     assert(test_idx < self.tests.len);
 
     self.tests[test_idx].status = status;
 }
 
-pub fn updateLastPtest(self: *Self, parent_test_idx: usize, status: Status) void {
+pub fn addTestLogs(self: Self, test_idx: usize, logs: []const u8) !void {
+    assert(test_idx < self.tests.len);
+    assert(self.tests[test_idx].status != .waiting);
+
+    try self.tests[test_idx].logs.appendSlice(logs);
+}
+
+pub fn updateLastPtestStatus(self: Self, parent_test_idx: usize, status: Status) void {
     assert(parent_test_idx < self.tests.len);
 
     const parent = self.tests[parent_test_idx];
@@ -93,6 +112,17 @@ pub fn updateLastPtest(self: *Self, parent_test_idx: usize, status: Status) void
     const idx = parent.ptests.items[parent.ptests.items.len - 1];
 
     self.ptests.items[idx].status = status;
+}
+
+pub fn addLastPtestLogs(self: Self, parent_test_idx: usize, logs: []const u8) !void {
+    assert(parent_test_idx < self.tests.len);
+
+    const parent = self.tests[parent_test_idx];
+
+    assert(parent.ptests.items.len != 0);
+    const idx = parent.ptests.items[parent.ptests.items.len - 1];
+
+    try self.ptests.items[idx].logs.appendSlice(logs);
 }
 
 /// Prints to the provided printer
@@ -107,6 +137,18 @@ pub fn printResults(self: *Self, tests: []const std.builtin.TestFn) !void {
         try printer.writeAll(": ");
 
         try printStatus(printer, test_info.status);
+        try self.newLine();
+
+        if (test_info.logs.items.len != 0) {
+            const logs = test_info.logs.items;
+
+            try printer.writeAll(logs);
+
+            const lines = std.mem.count(u8, logs, "\n");
+            self.printed_lines +|= std.math.cast(u15, lines) orelse std.math.maxInt(u15);
+
+            try self.newLine();
+        }
 
         ptest_loop: for (test_info.ptests.items) |ptest_info_idx| {
             const ptest_info = self.ptests.items[ptest_info_idx];
@@ -115,17 +157,15 @@ pub fn printResults(self: *Self, tests: []const std.builtin.TestFn) !void {
                 ptest_info.status == .busy)
                 continue :ptest_loop;
 
-            try self.newLine();
-
             try printer.writeAll("  ");
             try printer.setColor(.dim);
             try printer.writeAll(ptest_info.args_fmt);
             try printer.setColor(.reset);
             try printer.writeAll(" ");
             try printStatus(printer, ptest_info.status);
-        }
 
-        try self.newLine();
+            try self.newLine();
+        }
     }
 }
 

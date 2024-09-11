@@ -79,6 +79,60 @@ pub fn read(self: *ServerStreamer) Error!ReadStatus {
     return .{ .readLen = total_len_read };
 }
 
+// FIXME: either use metadata.timestamp or remove it from the struct
+pub fn getLogs(self: *const ServerStreamer, alloc: Allocator) ![]const u8 {
+    const max_line_width = 80;
+
+    var logs = std.ArrayList(u8).init(alloc);
+    const writer = logs.writer().any();
+
+    for (self.output_metadata.items) |metadata| {
+        const full_slice = switch (metadata.tag) {
+            .stdout => self.stdout_content.items,
+            .stderr => self.stderr_content.items,
+        };
+
+        const slice = full_slice[metadata.start_idx..(metadata.start_idx + metadata.len)];
+
+        var last_idx: usize = 0;
+        var last_space_idx: usize = 0;
+        for (slice, 0..) |char, idx| {
+            if (char == ' ') last_space_idx = idx;
+
+            const diff = idx - last_idx;
+
+            if (char != '\n' and diff < max_line_width) continue;
+
+            const end_idx = if (last_space_idx > last_idx) last_space_idx else idx;
+
+            const sub_slice = slice[last_idx..end_idx];
+
+            if (sub_slice.len == 0) continue;
+            try std.fmt.format(
+                writer,
+                "{s} | {s}\n",
+                .{ @tagName(metadata.tag), sub_slice },
+            );
+
+            last_idx = end_idx + 1;
+        }
+        const sub_slice = slice[last_idx..];
+
+        if (sub_slice.len == 0) continue;
+        try std.fmt.format(
+            writer,
+            "{s} | {s}\n",
+            .{ @tagName(metadata.tag), sub_slice },
+        );
+    }
+
+    return logs.toOwnedSlice();
+}
+
+test "longs stderr" {
+    std.debug.print("a" ** 100, .{});
+}
+
 /// Polls until a delimeter is found, the last poll returned nothing or the stream has ended.
 /// If a delimeter is found, returns the index after the delimeter
 pub inline fn readUntilDelimeter(self: *ServerStreamer, comptime delimeter: []const u8) Error!DelimeterStatus {
