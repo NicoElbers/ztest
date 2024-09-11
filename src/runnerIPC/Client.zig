@@ -160,6 +160,7 @@ pub fn receiveMessage(self: *Client, alloc: Allocator) ReceiveError!MessageStatu
         alloc,
         &self.process_streamer,
         &self.process_streamer.stdin_content,
+        &self.process_streamer.delim_checked_ptr,
     );
 }
 

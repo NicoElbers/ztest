@@ -36,17 +36,22 @@ pub fn receiveMessage(
     alloc: Allocator,
     streamer_ptr: anytype,
     input_list_ptr: anytype,
+    checked_ptr: *usize,
 ) (error{IncompleteMessage} ||
     Allocator.Error || // Allocator.alloc has a generic return type
     Errors(@TypeOf(streamer_ptr), "readUntilDelimeter") ||
     Errors(@TypeOf(streamer_ptr), "read"))!MessageStatus {
     const Header = Message.Header;
+    const input_list: *std.ArrayList(u8) = input_list_ptr;
 
     const pos = switch (try streamer_ptr.readUntilDelimeter(&IPC.special_message_start_key)) {
         .delimeterFound => |pos| pos,
         .streamClosed => return .streamClosed,
         .timedOut => return .timedOut,
     };
+    assert(pos >= IPC.special_message_start_key.len);
+
+    const ipc_msg_start = pos - IPC.special_message_start_key.len;
 
     var is_last_round = false;
     const header: Header = blk: while (true) {
@@ -58,7 +63,7 @@ pub fn receiveMessage(
             else => {},
         }
 
-        const message_slice = input_list_ptr.items[pos..];
+        const message_slice = input_list.items[pos..];
 
         if (message_slice.len < @sizeOf(Header)) continue;
 
@@ -86,12 +91,21 @@ pub fn receiveMessage(
             else => {},
         }
 
-        const after_slice = input_list_ptr.items[bytes_pos..];
+        const after_slice = input_list.items[bytes_pos..];
 
         if (after_slice.len < header.bytes_len) continue;
 
         const bytes = try alloc.alloc(u8, header.bytes_len);
         @memcpy(bytes, after_slice[0..header.bytes_len]);
+
+        std.mem.copyForwards(
+            u8,
+            input_list.items[ipc_msg_start..],
+            after_slice[header.bytes_len..],
+        );
+        checked_ptr.* = ipc_msg_start -| 1;
+
+        input_list.shrinkRetainingCapacity(ipc_msg_start + after_slice.len - header.bytes_len);
 
         return .{ .message = Message{ .header = header, .bytes = bytes } };
     }

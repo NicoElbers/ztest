@@ -81,52 +81,49 @@ pub fn read(self: *ServerStreamer) Error!ReadStatus {
 
 // FIXME: either use metadata.timestamp or remove it from the struct
 pub fn getLogs(self: *const ServerStreamer, alloc: Allocator) ![]const u8 {
-    const max_line_width = 80;
-
     var logs = std.ArrayList(u8).init(alloc);
     const writer = logs.writer().any();
 
-    for (self.output_metadata.items) |metadata| {
-        const full_slice = switch (metadata.tag) {
-            .stdout => self.stdout_content.items,
-            .stderr => self.stderr_content.items,
-        };
+    try writeLines(writer, "stdout", self.stdout_content.items);
+    try writeLines(writer, "stderr", self.stderr_content.items);
 
-        const slice = full_slice[metadata.start_idx..(metadata.start_idx + metadata.len)];
+    return logs.toOwnedSlice();
+}
 
-        var last_idx: usize = 0;
-        var last_space_idx: usize = 0;
-        for (slice, 0..) |char, idx| {
-            if (char == ' ') last_space_idx = idx;
+fn writeLines(writer: anytype, prefix: []const u8, slice: []const u8) !void {
+    const max_line_width = 80;
 
-            const diff = idx - last_idx;
+    var last_idx: usize = 0;
+    var last_space_idx: usize = 0;
+    for (slice, 0..) |char, idx| {
+        if (char == ' ') last_space_idx = idx;
 
-            if (char != '\n' and diff < max_line_width) continue;
+        const diff = idx - last_idx;
 
-            const end_idx = if (last_space_idx > last_idx) last_space_idx else idx;
+        if (char != '\n' and diff < max_line_width) continue;
 
-            const sub_slice = slice[last_idx..end_idx];
+        const end_idx = if (last_space_idx > last_idx) last_space_idx else idx;
 
-            if (sub_slice.len == 0) continue;
-            try std.fmt.format(
-                writer,
-                "{s} | {s}\n",
-                .{ @tagName(metadata.tag), sub_slice },
-            );
-
-            last_idx = end_idx + 1;
-        }
-        const sub_slice = slice[last_idx..];
+        const sub_slice = slice[last_idx..end_idx];
 
         if (sub_slice.len == 0) continue;
         try std.fmt.format(
             writer,
             "{s} | {s}\n",
-            .{ @tagName(metadata.tag), sub_slice },
+            .{ prefix, sub_slice },
         );
-    }
 
-    return logs.toOwnedSlice();
+        last_idx = end_idx + 1;
+    }
+    const sub_slice = slice[last_idx..];
+
+    if (sub_slice.len == 0) return;
+
+    try std.fmt.format(
+        writer,
+        "{s} | {s}\n",
+        .{ prefix, sub_slice },
+    );
 }
 
 test "longs stderr" {

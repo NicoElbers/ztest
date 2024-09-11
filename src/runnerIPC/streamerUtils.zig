@@ -33,23 +33,14 @@ pub fn readUntilDelimeter(
             }
         }
 
-        const unseen_slice = to_check.items[streamer.delim_checked_ptr..];
+        const unseen_slice = to_check.items[checked_ptr.*..];
 
-        if (unseen_slice.len < delimeter.len) continue;
-
-        inner: for (0..(unseen_slice.len - delimeter.len + 1)) |start_ptr| {
-            const check_slice = unseen_slice[start_ptr..(start_ptr + delimeter.len)];
-            assert(check_slice.len == delimeter.len);
-
-            for (check_slice, delimeter) |check_item, delim_item| {
-                if (check_item != delim_item) continue :inner;
-            }
-
-            checked_ptr.* += start_ptr + delimeter.len;
+        if (std.mem.indexOf(u8, unseen_slice, delimeter)) |pos| {
+            checked_ptr.* += pos + delimeter.len;
             return .{ .delimeterFound = checked_ptr.* };
+        } else {
+            checked_ptr.* += unseen_slice.len - delimeter.len + 1;
         }
-
-        checked_ptr.* += unseen_slice.len - delimeter.len + 1;
     }
     unreachable;
 }
