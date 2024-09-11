@@ -36,12 +36,12 @@ pub fn init(alloc: Allocator, test_amount: usize, output_file: File) !Self {
     // We can prealloc this because we get all the top level tests at comptime,
     // however for testability reasons, I still want to allocate at runtime
     const tests = try alloc.alloc(TestInformation, test_amount);
-    @memset(tests, .{ .status = .waiting, .ptests = std.ArrayList(usize).init(alloc) });
+    @memset(tests, .{ .status = .waiting, .ptests = .init(alloc) });
 
     return Self{
         .printer = printer,
         .tests = tests,
-        .ptests = std.ArrayList(ParameterizedInformation).init(alloc),
+        .ptests = .init(alloc),
         .alloc = alloc,
         .printed_lines = 0,
     };

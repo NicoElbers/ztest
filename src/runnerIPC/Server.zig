@@ -10,7 +10,7 @@ pub fn init(gpa: Allocator, child: Child) Server {
     assert(child.stderr != null);
 
     return Server{
-        .process_streamer = ServerStreamer.init(
+        .process_streamer = .init(
             gpa,
             child.stdout.?,
             child.stderr.?,
