@@ -45,15 +45,14 @@ pub fn serveExit(server: *Server) !void {
     try server.serveMessage(header, &.{});
 }
 
-pub fn serveRunTest(server: *Server, start_idx: usize, end_idx: usize) !void {
+pub fn serveRunTest(server: *Server, idx: usize) !void {
     const header: Message.Header = .{
-        .tag = .runTests,
-        .bytes_len = @sizeOf(usize) * 2,
+        .tag = .runTest,
+        .bytes_len = @sizeOf(usize),
     };
 
     try server.serveMessage(header, &.{
-        std.mem.asBytes(&start_idx),
-        std.mem.asBytes(&end_idx),
+        std.mem.asBytes(&idx),
     });
 }
 

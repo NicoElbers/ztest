@@ -1,4 +1,9 @@
 const debug = false;
+pub fn dbg(comptime fmt: []const u8, args: anytype) void {
+    if (!debug) return;
+
+    std.debug.print(fmt ++ "\n", args);
+}
 
 // Compatibility with std runner
 
@@ -106,11 +111,13 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
     const State = union(enum) {
         nothing,
 
+        requested_test,
+
         /// Usize represents the index into builtin.test_functions
-        in_test: usize,
+        running_test: usize,
 
         /// Usize represents the index into builtin.test_functions or parent test
-        in_parameterized_test: usize,
+        running_parameterized_test: usize,
     };
 
     const tests = builtin.test_functions;
@@ -131,13 +138,18 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
     var server = IPC.Server.init(alloc, child);
     defer server.deinit();
 
-    try server.serveRunTest(0, tests.len);
-
-    var tests_to_see: usize = tests.len;
+    var test_idx: usize = 0;
     var failures: usize = 0;
     var state: State = .nothing;
 
-    while (tests_to_see > 0) {
+    while (test_idx < builtin.test_functions.len) {
+        if (state == .nothing) {
+            dbg("requesting test {d}", .{test_idx});
+
+            try server.serveRunTest(test_idx);
+            state = .requested_test;
+        }
+
         const msg: IPC.Message = switch (try server.receiveMessage(alloc)) {
             .streamClosed => unreachable, // Client died unexpectedly
             .timedOut => continue,
@@ -146,41 +158,41 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
         defer alloc.free(msg.bytes);
 
         if (debug)
-            std.debug.print("Got {s}\n", .{@tagName(msg.header.tag)});
+            dbg("Got {s}", .{@tagName(msg.header.tag)});
 
         switch (msg.header.tag) {
             .testStart => {
-                assert(state == .nothing);
+                assert(state == .requested_test);
 
                 assert(msg.bytes.len == @sizeOf(usize));
                 const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
 
                 res_printer.initTest(idx);
 
-                state = .{ .in_test = idx };
+                state = .{ .running_test = idx };
             },
 
             .testSuccess => {
-                assert(state == .in_test);
+                assert(state == .running_test);
 
                 assert(msg.bytes.len == @sizeOf(usize));
                 const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
 
                 res_printer.updateTest(idx, .passed);
 
-                tests_to_see -= 1;
+                test_idx += 1;
                 state = .nothing;
             },
 
             .testSkipped => {
-                assert(state == .in_test);
+                assert(state == .running_test);
 
                 assert(msg.bytes.len == @sizeOf(usize));
                 const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
 
                 res_printer.updateTest(idx, .skipped);
 
-                tests_to_see -= 1;
+                test_idx += 1;
                 state = .nothing;
             },
 
@@ -188,7 +200,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 const Failure = Message.TestFailure;
                 const size = @sizeOf(Failure);
 
-                assert(state == .in_test);
+                assert(state == .running_test);
 
                 assert(msg.bytes.len >= size);
                 const failure: Failure = @bitCast(msg.bytes[0..size].*);
@@ -200,53 +212,53 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 res_printer.updateTest(failure.test_idx, .{ .failed = error.TODO });
 
                 failures += 1;
-                tests_to_see -= 1;
+                test_idx += 1;
                 state = .nothing;
             },
 
             .parameterizedStart => {
-                assert(state == .in_test);
+                assert(state == .running_test);
 
-                const idx = state.in_test;
+                const idx = state.running_test;
 
                 const args_fmt = msg.bytes;
 
                 try res_printer.initParameterizedTest(idx, args_fmt);
 
-                state = .{ .in_parameterized_test = idx };
+                state = .{ .running_parameterized_test = idx };
             },
 
             .parameterizedSuccess => {
-                assert(state == .in_parameterized_test);
+                assert(state == .running_parameterized_test);
 
-                const idx = state.in_parameterized_test;
+                const idx = state.running_parameterized_test;
 
                 res_printer.updateLastPtest(idx, .passed);
 
-                state = .{ .in_test = idx };
+                state = .{ .running_test = idx };
             },
             .parameterizedSkipped => {
-                assert(state == .in_parameterized_test);
+                assert(state == .running_parameterized_test);
 
-                const idx = state.in_parameterized_test;
+                const idx = state.running_parameterized_test;
 
                 res_printer.updateLastPtest(idx, .skipped);
 
-                state = .{ .in_test = idx };
+                state = .{ .running_test = idx };
             },
 
             .parameterizedError => {
-                assert(state == .in_parameterized_test);
+                assert(state == .running_parameterized_test);
 
-                const idx = state.in_parameterized_test;
+                const idx = state.running_parameterized_test;
 
                 res_printer.updateLastPtest(idx, .{ .failed = error.TODO });
 
                 failures += 1;
-                state = .{ .in_test = idx };
+                state = .{ .running_test = idx };
             },
 
-            .runTests,
+            .runTest,
             .exit,
             => unreachable, // May only be sent by the server
         }
@@ -255,9 +267,10 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
             try res_printer.printResults(tests);
     }
 
+    dbg("Serving exit", .{});
     try server.serveExit();
     const term = try child.wait();
-    std.debug.print("Process exit: {any}\n", .{term});
+    dbg("Process exit: {any}", .{term});
 }
 
 fn clientFn(alloc: Allocator) !void {
@@ -273,28 +286,29 @@ fn clientFn(alloc: Allocator) !void {
         defer alloc.free(msg.bytes);
         assert(msg.bytes.len == msg.header.bytes_len);
 
+        if (debug)
+            dbg("Client got message: {s}", .{@tagName(msg.header.tag)});
+
         switch (msg.header.tag) {
             .exit => break :loop,
 
-            .runTests => {
-                assert(msg.header.bytes_len == @sizeOf(usize) * 2);
+            .runTest => {
+                assert(msg.header.bytes_len == @sizeOf(usize));
 
-                const start_idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
-                const end_idx = std.mem.readInt(usize, msg.bytes[@sizeOf(usize)..(@sizeOf(usize) * 2)], .little);
+                const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
+                assert(idx < builtin.test_functions.len);
 
-                for (builtin.test_functions[start_idx..end_idx], start_idx..end_idx) |test_fn, idx| {
-                    try client.serveTestStart(idx);
+                try client.serveTestStart(idx);
 
-                    test_fn.func() catch |err| {
-                        switch (err) {
-                            error.ZigSkipTest => try client.serveTestSkipped(idx),
-                            else => try client.serveTestFailure(idx),
-                        }
-                        continue;
-                    };
+                builtin.test_functions[idx].func() catch |err| {
+                    switch (err) {
+                        error.ZigSkipTest => try client.serveTestSkipped(idx),
+                        else => try client.serveTestFailure(idx),
+                    }
+                    continue;
+                };
 
-                    try client.serveTestSuccess(idx);
-                }
+                try client.serveTestSuccess(idx);
             },
 
             .parameterizedStart,

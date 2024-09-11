@@ -37,7 +37,7 @@ pub fn receiveMessage(
     streamer_ptr: anytype,
     input_list_ptr: anytype,
 ) (error{IncompleteMessage} ||
-    Allocator.Error ||
+    Allocator.Error || // Allocator.alloc has a generic return type
     Errors(@TypeOf(streamer_ptr), "readUntilDelimeter") ||
     Errors(@TypeOf(streamer_ptr), "read"))!MessageStatus {
     const Header = Message.Header;
@@ -143,7 +143,7 @@ pub inline fn ErrorsFn(comptime Fn: anytype) type {
     comptime assert(info == .@"fn");
     const fn_info = info.@"fn";
 
-    if (fn_info.return_type == null) @compileError("return type null :(");
+    if (fn_info.return_type == null) @compileError("Function return type is generic, cannot infer errors");
 
     return @typeInfo(fn_info.return_type.?).error_union.error_set;
 }
