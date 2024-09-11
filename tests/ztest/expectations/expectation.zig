@@ -46,7 +46,7 @@ test "expect all comptime types" {
     const SomeTaggedUnion = union(enum) { a: u32, b: u64 };
 
     const inner = struct {
-        pub fn unchanged(comptime in: anytype) !void {
+        pub fn unchanged(comptime in: anytype) error{}!void {
             @setEvalBranchQuota(1_000_000);
             const state = comptime expect(in);
             const T = @TypeOf(state);
