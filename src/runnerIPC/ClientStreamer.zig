@@ -14,7 +14,7 @@ pub fn init(alloc: Allocator, stdin: File) ClientStreamer {
     });
 
     return ClientStreamer{
-        .stdin_content = std.ArrayList(u8).init(alloc),
+        .stdin_content = .init(alloc),
         .delim_checked_ptr = 0,
         .poller = poller,
     };

@@ -24,9 +24,9 @@ pub fn init(alloc: Allocator, stdout: File, stderr: File) ServerStreamer {
     });
 
     return ServerStreamer{
-        .stdout_content = std.ArrayList(u8).init(alloc),
-        .stderr_content = std.ArrayList(u8).init(alloc),
-        .output_metadata = std.ArrayList(SliceMetadata).init(alloc),
+        .stdout_content = .init(alloc),
+        .stderr_content = .init(alloc),
+        .output_metadata = .init(alloc),
         .delim_checked_ptr = 0,
         .poller = poller,
     };

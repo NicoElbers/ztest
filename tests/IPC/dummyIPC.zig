@@ -246,7 +246,7 @@ pub const Pipe = struct {
 
 pub fn makeDummyServer(child_stdin: File, child_stdout: File, child_stderr: File) Server {
     return Server{
-        .process_streamer = ServerStreamer.init(
+        .process_streamer = .init(
             gpa,
             child_stdout,
             child_stderr,
@@ -257,7 +257,7 @@ pub fn makeDummyServer(child_stdin: File, child_stdout: File, child_stderr: File
 
 pub fn makeDummyClient(child_stdin: File, child_stdout: File) Client {
     return Client{
-        .process_streamer = ClientStreamer.init(
+        .process_streamer = .init(
             gpa,
             child_stdin,
         ),
