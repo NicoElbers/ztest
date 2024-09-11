@@ -32,7 +32,7 @@ pub fn init(output_file: File, alloc: Allocator) Self {
 }
 
 pub fn printFmt(self: Self, comptime fmt: []const u8, args: anytype) !void {
-    try std.fmt.format(self.file_writer, fmt, args);
+    try std.fmt.format(self.writer, fmt, args);
 }
 
 pub fn writeAll(self: Self, bytes: []const u8) WriterError!void {
@@ -55,14 +55,7 @@ pub fn clearLine(self: Self) WriterError!void {
 pub fn moveUpLine(self: Self, count: u15) (WriterError || std.fmt.AllocPrintError)!void {
     std.debug.assert(self.ansi_support);
 
-    const move_str = try std.fmt.allocPrint(
-        self.alloc,
-        "\x1b[{d}F",
-        .{count},
-    );
-    defer self.alloc.free(move_str);
-
-    try self.writeAll(move_str);
+    try self.printFmt("\x1b[{d}A", .{count});
 }
 
 // u15 because "<n> cannot be larger than 32,767 (maximum short value)"
