@@ -167,7 +167,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 assert(msg.bytes.len == @sizeOf(usize));
                 const idx = std.mem.readInt(usize, msg.bytes[0..@sizeOf(usize)], .little);
 
-                res_printer.initTest(idx);
+                res_printer.updateTest(idx, .busy);
 
                 state = .{ .running_test = idx };
             },
@@ -252,6 +252,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 const idx = state.running_parameterized_test;
 
+                res_printer.updateTest(idx, .{ .failed = error.TODO });
                 res_printer.updateLastPtest(idx, .{ .failed = error.TODO });
 
                 failures += 1;
