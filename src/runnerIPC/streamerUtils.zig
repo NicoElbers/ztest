@@ -1,4 +1,11 @@
-pub const timeout_ns = time.ns_per_ms * 5;
+// This should be 0 so that the process so that the process doesn't try to wait
+// for data that clearly isn't there. For some reason it will either instantly
+// get data or hang for the entire duration
+//
+// TODO: Remove this constant from here when the client/server merge happens and
+// then make sure to yield the thread when we timed out, so that (presumably) the
+// client server counterpart can do their thing
+pub const timeout_ns = 0;
 
 pub const ReadStatus = union(enum) {
     streamClosed: void,
