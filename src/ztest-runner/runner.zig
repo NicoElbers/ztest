@@ -93,8 +93,11 @@ pub fn main() !void {
     defer std.process.argsFree(alloc, args);
 
     var process_state: ProcessFunction = .server;
-    for (args) |arg| {
-        const arg_enum = std.meta.stringToEnum(Args, arg) orelse continue;
+    for (args[1..]) |arg| {
+        const arg_enum = std.meta.stringToEnum(Args, arg) orelse {
+            std.log.err("Unknown arg: '{s}'", .{arg});
+            continue;
+        };
 
         switch (arg_enum) {
             .@"--client" => process_state = .client,
@@ -142,7 +145,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
     defer server.deinit();
 
     var test_idx: usize = 0;
-    var failures: usize = 0;
+    var failures: u32 = 0;
     var state: State = .nothing;
 
     while (test_idx < builtin.test_functions.len) {
@@ -159,9 +162,6 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
             .message => |msg| msg,
         };
         defer alloc.free(msg.bytes);
-
-        if (debug)
-            dbg("Got {any}", .{msg});
 
         switch (msg.header.tag) {
             .testStart => {
@@ -303,6 +303,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
     dbg("Serving exit", .{});
     try server.serveExit();
+
     const term = try child.wait();
     dbg("Process exit: {any}", .{term});
 }
