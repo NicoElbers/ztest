@@ -203,7 +203,8 @@ fn newLine(self: *Self) !void {
 }
 
 pub fn clearPrinted(self: *Self) !void {
-    try self.printer.moveUpLine(self.printed_lines);
+    if (self.printed_lines != 0)
+        try self.printer.moveUpLine(self.printed_lines);
     try self.printer.clearBelow();
     self.printed_lines = 0;
 }
