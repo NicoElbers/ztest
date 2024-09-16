@@ -80,18 +80,18 @@ pub fn read(self: *ServerStreamer) Error!ReadStatus {
 }
 
 // FIXME: either use metadata.timestamp or remove it from the struct
-pub fn getLogs(self: *const ServerStreamer, alloc: Allocator) ![]const u8 {
+pub fn getLogs(self: *const ServerStreamer, max_width: u16, alloc: Allocator) ![]const u8 {
     var logs = std.ArrayList(u8).init(alloc);
     const writer = logs.writer().any();
 
-    try writeLines(writer, "stdout", self.stdout_content.items);
-    try writeLines(writer, "stderr", self.stderr_content.items);
+    try writeLines(writer, max_width, "stdout", self.stdout_content.items);
+    try writeLines(writer, max_width, "stderr", self.stderr_content.items);
 
     return logs.toOwnedSlice();
 }
 
-fn writeLines(writer: anytype, prefix: []const u8, slice: []const u8) !void {
-    const max_line_width = 80;
+fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []const u8) !void {
+    const max_slice_width: usize = max_width - prefix.len - (" | ").len;
 
     var last_idx: usize = 0;
     var last_space_idx: usize = 0;
@@ -100,7 +100,7 @@ fn writeLines(writer: anytype, prefix: []const u8, slice: []const u8) !void {
 
         const diff = idx - last_idx;
 
-        if (char != '\n' and diff < max_line_width) continue;
+        if (char != '\n' and diff < max_slice_width) continue;
 
         const end_idx = if (char == '\n')
             idx
