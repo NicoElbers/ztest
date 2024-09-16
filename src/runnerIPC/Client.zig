@@ -11,6 +11,15 @@ pub fn init(gpa: Allocator) Client {
     };
 }
 
+/// Create a client that is only allowed to send, recieving anything will
+/// most likely segfault
+pub fn initSender() Client {
+    return Client{
+        .process_streamer = undefined,
+        .out = std.io.getStdOut(),
+    };
+}
+
 pub fn deinit(self: *Client) void {
     self.process_streamer.deinit();
     self.* = undefined;
