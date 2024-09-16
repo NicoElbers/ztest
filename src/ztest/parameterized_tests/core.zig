@@ -45,6 +45,10 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
 
                     const stack_trace = @errorReturnTrace();
 
+                    if (@errorReturnTrace()) |st| {
+                        std.debug.dumpStackTrace(st.*);
+                    }
+
                     // TODO: Currently the stacktrace is kinda fucked, think of a better way to
                     // get individual traces per parameterized test
                     const st_str = if (stack_trace) |st| blk: {
