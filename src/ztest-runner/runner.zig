@@ -127,6 +127,9 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
     var res_printer = try ResultPrinter.init(alloc, tests.len, out_file);
     defer res_printer.deinit();
 
+    // We assume that the terminal doesn't resize while tests are being ran.
+    const terminal_width = try res_printer.printer.getTerminalWidth() orelse 80;
+
     var child = std.process.Child.init(&.{ argv0, @tagName(Args.@"--client") }, alloc);
     child.stdin_behavior = .Pipe;
     child.stdout_behavior = .Pipe;
@@ -180,7 +183,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 res_printer.updateTestStatus(idx, .passed);
 
-                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                const logs = try server.process_streamer.getLogs(terminal_width, res_printer.alloc);
                 defer res_printer.alloc.free(logs);
 
                 try res_printer.addTestLogs(test_idx, logs);
@@ -197,7 +200,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 res_printer.updateTestStatus(idx, .skipped);
 
-                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                const logs = try server.process_streamer.getLogs(terminal_width, res_printer.alloc);
                 defer res_printer.alloc.free(logs);
 
                 try res_printer.addTestLogs(idx, logs);
@@ -221,7 +224,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 res_printer.updateTestStatus(failure.test_idx, .{ .failed = error.TODO });
 
-                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                const logs = try server.process_streamer.getLogs(terminal_width, res_printer.alloc);
                 defer res_printer.alloc.free(logs);
 
                 try res_printer.addTestLogs(test_idx, logs);
@@ -250,7 +253,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 res_printer.updateLastPtestStatus(idx, .passed);
 
-                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                const logs = try server.process_streamer.getLogs(terminal_width, res_printer.alloc);
                 defer res_printer.alloc.free(logs);
 
                 try res_printer.addLastPtestLogs(test_idx, logs);
@@ -264,7 +267,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 res_printer.updateLastPtestStatus(idx, .skipped);
 
-                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                const logs = try server.process_streamer.getLogs(terminal_width, res_printer.alloc);
                 defer res_printer.alloc.free(logs);
 
                 try res_printer.addLastPtestLogs(test_idx, logs);
@@ -280,7 +283,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 res_printer.updateTestStatus(idx, .{ .failed = error.TODO });
                 res_printer.updateLastPtestStatus(idx, .{ .failed = error.TODO });
 
-                const logs = try server.process_streamer.getLogs(res_printer.alloc);
+                const logs = try server.process_streamer.getLogs(terminal_width, res_printer.alloc);
                 defer res_printer.alloc.free(logs);
 
                 try res_printer.addLastPtestLogs(test_idx, logs);
