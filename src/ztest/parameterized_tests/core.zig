@@ -9,7 +9,7 @@ const Client = IPC.Client;
 const assert = std.debug.assert;
 
 pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
-    verifyArguments(func, param_list);
+    verifyArguments(@TypeOf(func), @TypeOf(param_list));
 
     var client = IPC.Client.init(ztest.allocator);
 
@@ -139,10 +139,9 @@ inline fn fmtSpecifier(comptime T: type) ?[:0]const u8 {
     unreachable;
 }
 
-fn verifyArguments(comptime func: anytype, param_list: anytype) void {
-    const func_type = @TypeOf(func);
+fn verifyArguments(comptime func_type: type, comptime param_list: type) void {
     const func_info = @typeInfo(func_type);
-    const param_list_info = @typeInfo(@TypeOf(param_list));
+    const param_list_info = @typeInfo(param_list);
 
     if (func_info != .@"fn")
         @compileError("func is expected to be a function");
