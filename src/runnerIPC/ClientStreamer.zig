@@ -70,10 +70,6 @@ pub fn Errors(comptime Fn: anytype) type {
     return @typeInfo(@typeInfo(@TypeOf(Fn)).@"fn".return_type.?).error_union.error_set;
 }
 
-fn print(comptime fmt: []const u8, args: anytype) void {
-    std.debug.print(fmt ++ "\n", args);
-}
-
 const ClientStreamer = @This();
 
 const ReadStatus = streamerUtils.ReadStatus;
