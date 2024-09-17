@@ -102,35 +102,39 @@ pub fn getRemoveLogs(self: *ServerStreamer, max_width: u16, alloc: Allocator) ![
 fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []const u8) !void {
     const max_slice_width: usize = max_width - prefix.len - (" | ").len;
 
-    var last_idx: usize = 0;
+    var written_idx: usize = 0;
     var last_space_idx: usize = 0;
     for (slice, 0..) |char, idx| {
         if (char == ' ') last_space_idx = idx;
 
-        const diff = idx - last_idx;
+        const idx_diff = idx - written_idx;
 
-        if (char != '\n' and diff < max_slice_width) continue;
+        if (char != '\n' and idx_diff < max_slice_width) continue;
 
-        const end_idx = if (char == '\n')
-            idx
-        else if (last_space_idx > last_idx)
-            last_space_idx
-        else
-            idx;
-
-        const sub_slice = slice[last_idx..end_idx];
+        const sub_slice = if (char == '\n') blk: {
+            // Skip newline character
+            defer written_idx = idx + 1;
+            break :blk slice[written_idx..idx];
+        } else if (last_space_idx > written_idx) blk: {
+            // Skip space
+            defer written_idx = last_space_idx + 1;
+            break :blk slice[written_idx..last_space_idx];
+        } else blk: {
+            // do _not_ skip a character
+            defer written_idx = idx;
+            break :blk slice[written_idx..idx];
+        };
 
         if (sub_slice.len == 0) continue;
+
         try std.fmt.format(
             writer,
             "{s} | {s}\n",
             .{ prefix, sub_slice },
         );
-
-        last_idx = end_idx + 1;
     }
-    const sub_slice = slice[last_idx..];
 
+    const sub_slice = slice[written_idx..];
     if (sub_slice.len == 0) return;
 
     try std.fmt.format(
