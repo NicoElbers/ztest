@@ -1,5 +1,6 @@
 stdout_content: std.ArrayList(u8),
 stderr_content: std.ArrayList(u8),
+// FIXME: Either do something with the metadata or remove it
 output_metadata: std.ArrayList(SliceMetadata),
 delim_checked_ptr: usize,
 poller: std.io.Poller(PollerEnum),
@@ -79,15 +80,23 @@ pub fn read(self: *ServerStreamer) Error!ReadStatus {
     return .{ .readLen = total_len_read };
 }
 
-// FIXME: either use metadata.timestamp or remove it from the struct
-pub fn getLogs(self: *const ServerStreamer, max_width: u16, alloc: Allocator) ![]const u8 {
+/// Gets logs aggregated thus far, and clears stdout and stderr content.
+///
+/// This may ONLY be done when the client is not actively sending messages,
+/// otherwise those might get discarded.
+pub fn getRemoveLogs(self: *ServerStreamer, max_width: u16, alloc: Allocator) ![]const u8 {
     var logs = std.ArrayList(u8).init(alloc);
     const writer = logs.writer().any();
 
     try writeLines(writer, max_width, "stdout", self.stdout_content.items);
     try writeLines(writer, max_width, "stderr", self.stderr_content.items);
 
-    return logs.toOwnedSlice();
+    self.delim_checked_ptr = 0;
+    self.stdout_content.clearRetainingCapacity();
+    self.stderr_content.clearRetainingCapacity();
+    self.output_metadata.clearRetainingCapacity();
+
+    return try logs.toOwnedSlice();
 }
 
 fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []const u8) !void {
