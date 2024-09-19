@@ -280,7 +280,6 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 
                 const idx = state.running_parameterized_test;
 
-                res_printer.updateTestStatus(idx, .{ .failed = error.TODO });
                 res_printer.updateLastPtestStatus(idx, .{ .failed = error.TODO });
 
                 failures += 1;
