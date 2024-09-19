@@ -4,7 +4,7 @@ tests: []TestInformation,
 ptests: std.ArrayList(ParameterizedInformation),
 printed_lines: u15,
 
-pub const Status = union(enum) { waiting, busy, passed, skipped, failed: anyerror };
+pub const Status = union(enum) { printed, waiting, busy, passed, skipped, failed: anyerror };
 
 pub const TestInformation = struct {
     status: Status,
@@ -128,16 +128,36 @@ pub fn addLastPtestLogs(self: Self, parent_test_idx: usize, logs: []const u8) !v
 /// Prints to the provided printer
 pub fn printResults(self: *Self, tests: []const std.builtin.TestFn) !void {
     const printer = &self.printer;
+    const isTty = printer.file.isTty();
 
-    try self.clearPrinted();
+    if (isTty) {
+        try self.clearPrinted();
+    }
 
-    for (self.tests, 0..) |test_info, idx| {
+    for (self.tests, 0..) |*test_info, idx| {
+        const status = &test_info.status;
+
+        switch (status.*) {
+            // Skip printed tests
+            .printed => continue,
+
+            // If we are not printing to a TTY, don't print intermediate
+            // results
+            .busy,
+            .waiting,
+            => if (!isTty) continue,
+
+            else => {},
+        }
+
+        var lines_printed: u15 = 0;
+
         const test_name = tests[idx].name;
         try printer.writeAll(test_name);
         try printer.writeAll(": ");
 
         try printStatus(printer, test_info.status);
-        try self.newLine();
+        try self.newLine(&lines_printed);
 
         if (test_info.logs.items.len != 0) {
             const logs = test_info.logs.items;
@@ -145,16 +165,16 @@ pub fn printResults(self: *Self, tests: []const std.builtin.TestFn) !void {
             try printer.writeAll(logs);
 
             const lines = std.mem.count(u8, logs, "\n");
-            self.printed_lines +|= std.math.cast(u15, lines) orelse std.math.maxInt(u15);
+            lines_printed +|= std.math.cast(u15, lines) orelse std.math.maxInt(u15);
 
-            try self.newLine();
+            try self.newLine(&lines_printed);
         }
 
         ptest_loop: for (test_info.ptests.items) |ptest_info_idx| {
             const ptest_info = self.ptests.items[ptest_info_idx];
 
-            if (ptest_info.status == .passed or
-                ptest_info.status == .busy)
+            if (status.* == .passed or
+                status.* == .busy)
                 continue :ptest_loop;
 
             try printer.writeAll("  ");
@@ -164,7 +184,13 @@ pub fn printResults(self: *Self, tests: []const std.builtin.TestFn) !void {
             try printer.writeAll(" ");
             try printStatus(printer, ptest_info.status);
 
-            try self.newLine();
+            try self.newLine(&lines_printed);
+        }
+
+        if (status.* == .waiting or status.* == .busy) {
+            self.printed_lines +|= lines_printed;
+        } else {
+            status.* = .printed;
         }
     }
 }
@@ -191,15 +217,16 @@ fn printStatus(printer: *Printer, status: Status) !void {
             try printer.writeAll(@errorName(err));
             try printer.writeAll(")");
         },
+        .printed => unreachable,
     }
     try printer.setColor(.reset);
 }
 
-fn newLine(self: *Self) !void {
+fn newLine(self: *Self, lines: *u15) !void {
     try self.printer.writeAll("\n");
 
     // If we would overflow, just saturate
-    self.printed_lines +|= 1;
+    lines.* +|= 1;
 }
 
 pub fn clearPrinted(self: *Self) !void {
