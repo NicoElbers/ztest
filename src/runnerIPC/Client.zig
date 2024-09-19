@@ -106,9 +106,9 @@ pub fn serveParameterizedStart(client: *Client, args_str: []const u8) !void {
     });
 }
 
-pub fn serveParameterizedSuccess(client: *Client) !void {
+pub fn serveParameterizedComplete(client: *Client) !void {
     const header = Message.Header{
-        .tag = .parameterizedSuccess,
+        .tag = .parameterizedComplete,
         .bytes_len = 0,
     };
 

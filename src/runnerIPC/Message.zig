@@ -43,7 +43,7 @@ pub const Tag = enum(u32) {
     parameterizedSkipped,
 
     /// Has no body, can only be sent by client
-    parameterizedSuccess,
+    parameterizedComplete,
 };
 
 pub const TestFailure = packed struct(u64) {
