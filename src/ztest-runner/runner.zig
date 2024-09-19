@@ -1,12 +1,6 @@
 const debug = false;
-pub fn dbg(comptime fmt: []const u8, args: anytype) void {
-    if (!debug) return;
-
-    std.debug.print(fmt ++ "\n", args);
-}
 
 // Compatibility with std runner
-
 pub fn fuzzInput(arg: anytype) []const u8 {
     _ = arg;
 
@@ -16,63 +10,6 @@ pub fn fuzzInput(arg: anytype) []const u8 {
 
 // TODO: Make this more unique with underscores and shit
 pub const IsZtestRunner = void;
-
-// ---- Types exposed to ztest ----
-
-pub const TestType = enum {
-    builtin,
-    parameterized,
-};
-
-pub const Test = struct {
-    const Self = @This();
-
-    typ: TestType,
-    name: []const u8,
-    func: *const fn (*const anyopaque) anyerror!void,
-    args: *const anyopaque,
-
-    pub fn initBuiltin(test_fn: BuiltinTestFn) Self {
-        const test_fn_info = @typeInfo(@TypeOf(test_fn.func));
-        comptime assert(test_fn_info == .pointer);
-        comptime assert(test_fn_info.pointer.is_const);
-        comptime assert(test_fn_info.pointer.child == fn () anyerror!void);
-
-        const func = struct {
-            pub fn wrapper(ptr: *const anyopaque) anyerror!void {
-                // TODO: Comptime assert that BuiltinTestFn.func == *const fn() anyerror!void
-                const func: *const fn () anyerror!void = @ptrCast(@alignCast(ptr));
-                return func();
-            }
-        }.wrapper;
-
-        return Self{
-            .typ = .builtin,
-            .name = test_fn.name,
-            .func = func,
-            .args = test_fn.func,
-        };
-    }
-
-    pub fn run(self: Self) TestRes {
-        const res = self.func(self.args);
-
-        return TestRes{
-            .typ = self.typ,
-            .raw_result = res,
-        };
-    }
-};
-
-// ---- Internal representation for results ----
-
-// TODO: Rename to TestResult
-pub const TestRes = struct {
-    // TODO: Rename to type?
-    typ: TestType,
-    // TODO: Rename to smth better
-    raw_result: anyerror!void,
-};
 
 // ---- Bare bones main method ----
 
@@ -314,8 +251,7 @@ fn clientFn(alloc: Allocator) !void {
         defer alloc.free(msg.bytes);
         assert(msg.bytes.len == msg.header.bytes_len);
 
-        if (debug)
-            dbg("Client got message: {s}", .{@tagName(msg.header.tag)});
+        dbg("Client got message: {s}", .{@tagName(msg.header.tag)});
 
         switch (msg.header.tag) {
             .exit => break :loop,
@@ -350,6 +286,12 @@ fn clientFn(alloc: Allocator) !void {
             => unreachable, // May only be sent by client
         }
     }
+}
+
+pub fn dbg(comptime fmt: []const u8, args: anytype) void {
+    if (!debug) return;
+
+    std.debug.print(fmt ++ "\n", args);
 }
 
 test {

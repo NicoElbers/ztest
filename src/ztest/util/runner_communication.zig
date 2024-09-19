@@ -13,14 +13,3 @@ pub inline fn isUsingZtestRunner() bool {
         break :blk false;
     };
 }
-
-pub const RunnerInfo = blk: {
-    if (!util.isUsingZtestRunner)
-        break :blk struct {};
-
-    break :blk struct {
-        pub const TestType = root.TestType;
-        pub const Test = root.Test;
-        pub const TestRunner = root.TestRunner;
-    };
-};
