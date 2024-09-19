@@ -124,8 +124,8 @@ pub fn serveParameterizedSkipped(client: *Client) !void {
     try client.serveMessage(header, &.{});
 }
 
-pub fn serveParameterizedError(client: *Client, error_name: []const u8, stacktrace_str: []const u8) !void {
-    const len: usize = @sizeOf(Message.ParameterizedError) + error_name.len + stacktrace_str.len;
+pub fn serveParameterizedError(client: *Client, error_name: []const u8) !void {
+    const len: usize = @sizeOf(Message.ParameterizedError) + error_name.len;
 
     const header = Message.Header{
         .tag = .parameterizedError,
@@ -134,13 +134,11 @@ pub fn serveParameterizedError(client: *Client, error_name: []const u8, stacktra
 
     const message_info = Message.ParameterizedError{
         .error_name_len = @intCast(error_name.len),
-        .stack_trace_fmt_len = @intCast(stacktrace_str.len),
     };
 
     try client.serveMessage(header, &.{
         &std.mem.toBytes(message_info),
         error_name,
-        stacktrace_str,
     });
 }
 

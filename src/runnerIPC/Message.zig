@@ -54,12 +54,9 @@ pub const TestFailure = packed struct(u64) {
     error_name_len: u32,
 };
 
-pub const ParameterizedError = packed struct(u32) {
+pub const ParameterizedError = packed struct(u16) {
     /// error name length, first item
     error_name_len: u16,
-
-    /// stack trace len, after error name
-    stack_trace_fmt_len: u16,
 };
 
 const Message = @This();
