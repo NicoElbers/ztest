@@ -114,6 +114,19 @@ pub fn getRemoveLogs(self: *ServerStreamer, max_width: u16, alloc: Allocator) ![
     return try logs.toOwnedSlice();
 }
 
+const breakable_chars = [_]struct { char: u8, skip: bool, force_break: bool }{
+    // zig fmt: off
+    .{ .char = ' ' , .skip = true , .force_break = false },
+    .{ .char = '-' , .skip = false, .force_break = false },
+    .{ .char = '"' , .skip = false, .force_break = false },
+    .{ .char = '/' , .skip = false, .force_break = false },
+    .{ .char = '\'', .skip = false, .force_break = false },
+    .{ .char = '\\', .skip = false, .force_break = false },
+    .{ .char = '\t', .skip = true , .force_break = false },
+    .{ .char = '\n', .skip = true , .force_break = true  },
+    // zig fmt: on
+};
+
 /// `max_width` must be greater than `prefix.len`
 fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []const u8) !void {
     assert(max_width > prefix.len);
@@ -121,45 +134,60 @@ fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []cons
     const max_slice_width: usize = max_width - prefix.len;
 
     var written_idx: usize = 0;
-    var last_space_idx: usize = 0;
+    var last_breakable = struct {
+        skip: bool = false,
+        idx: usize = 0,
+    }{};
+
     for (slice, 0..) |char, idx| {
-        if (char == ' ') last_space_idx = idx;
+        // Is this character breakable?
+        loop: inline for (breakable_chars) |b| {
+            if (char == b.char) {
+                last_breakable = .{
+                    .skip = b.skip,
+                    .idx = idx,
+                };
+                break :loop;
+            }
+        }
 
-        const idx_diff = idx - written_idx;
+        // Should we break here?
+        loop: inline for (breakable_chars) |b| {
+            if (b.force_break and char == b.char) 
+                break :loop;
+        } else {
+            if (idx - written_idx < max_slice_width) continue;
+        }
 
-        if (char != '\n' and idx_diff < max_slice_width) continue;
-
-        const sub_slice = if (char == '\n') blk: {
-            // Skip newline character
-            defer written_idx = idx + 1;
-            break :blk slice[written_idx..idx];
-        } else if (last_space_idx > written_idx) blk: {
-            // Skip space
-            defer written_idx = last_space_idx + 1;
-            break :blk slice[written_idx..last_space_idx];
+        // What slice are we printing
+        const sub_slice = if (last_breakable.idx > written_idx) blk: {
+            defer written_idx = last_breakable.idx + @intFromBool(last_breakable.skip);
+            break :blk slice[written_idx..last_breakable.idx];
         } else blk: {
-            // do _not_ skip a character
             defer written_idx = idx;
             break :blk slice[written_idx..idx];
         };
 
         if (sub_slice.len == 0) continue;
 
+        // Trim because we might have multiple newlines in a row :(
+        const trimmed_sub_slice = std.mem.trim(u8, sub_slice, "\n");
+
         try std.fmt.format(
             writer,
             "{s}{s}\n",
+            .{ prefix, trimmed_sub_slice },
+        );
+    } else {
+        const sub_slice = slice[written_idx..];
+        if (sub_slice.len == 0) return;
+
+        try std.fmt.format(
+            writer,
+            "{s}{s}",
             .{ prefix, sub_slice },
         );
     }
-
-    const sub_slice = slice[written_idx..];
-    if (sub_slice.len == 0) return;
-
-    try std.fmt.format(
-        writer,
-        "{s}{s}\n",
-        .{ prefix, sub_slice },
-    );
 }
 
 test "writeLines wrapping string" {
@@ -167,7 +195,7 @@ test "writeLines wrapping string" {
     var fbs = std.io.fixedBufferStream(&buf);
     const writer = fbs.writer();
 
-    const input = "123456789";
+    const input = "123456789\n";
     const prefix = "pre | ";
     const max_width = prefix.len + 4;
     const expected =
