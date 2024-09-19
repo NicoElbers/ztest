@@ -80,7 +80,8 @@ pub fn read(self: *ServerStreamer) Error!ReadStatus {
     return .{ .readLen = total_len_read };
 }
 
-/// Gets logs aggregated thus far, and clears stdout and stderr content.
+/// Gets logs aggregated thus far, and clears stdout and stderr content. Will end
+/// with a newline unless if stdout/stderr content is empty.
 ///
 /// This may ONLY be done when the client is not actively sending messages,
 /// otherwise those might get discarded.
@@ -88,8 +89,22 @@ pub fn getRemoveLogs(self: *ServerStreamer, max_width: u16, alloc: Allocator) ![
     var logs = std.ArrayList(u8).init(alloc);
     const writer = logs.writer().any();
 
-    try writeLines(writer, max_width, "stdout", self.stdout_content.items);
-    try writeLines(writer, max_width, "stderr", self.stderr_content.items);
+    const stdout_prefix = "stdout | ";
+    const stderr_prefix = "stderr | ";
+
+    try writeLines(
+        writer,
+        @max(max_width, stdout_prefix.len + 1),
+        stdout_prefix,
+        self.stdout_content.items,
+    );
+
+    try writeLines(
+        writer,
+        @max(max_width, stderr_prefix.len + 1),
+        stderr_prefix,
+        self.stderr_content.items,
+    );
 
     self.delim_checked_ptr = 0;
     self.stdout_content.clearRetainingCapacity();
@@ -99,8 +114,11 @@ pub fn getRemoveLogs(self: *ServerStreamer, max_width: u16, alloc: Allocator) ![
     return try logs.toOwnedSlice();
 }
 
+/// `max_width` must be greater than `prefix.len`
 fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []const u8) !void {
-    const max_slice_width: usize = max_width - prefix.len - (" | ").len;
+    assert(max_width > prefix.len);
+
+    const max_slice_width: usize = max_width - prefix.len;
 
     var written_idx: usize = 0;
     var last_space_idx: usize = 0;
@@ -129,7 +147,7 @@ fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []cons
 
         try std.fmt.format(
             writer,
-            "{s} | {s}\n",
+            "{s}{s}\n",
             .{ prefix, sub_slice },
         );
     }
@@ -139,13 +157,31 @@ fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []cons
 
     try std.fmt.format(
         writer,
-        "{s} | {s}\n",
+        "{s}{s}\n",
         .{ prefix, sub_slice },
     );
 }
 
-test "longs stderr" {
-    std.debug.print("a" ** 100, .{});
+test "writeLines wrapping string" {
+    var buf: [100]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    const writer = fbs.writer();
+
+    const input = "123456789";
+    const prefix = "pre | ";
+    const max_width = prefix.len + 4;
+    const expected =
+        \\pre | 1234
+        \\pre | 5678
+        \\pre | 9
+        \\
+    ;
+
+    try writeLines(writer, max_width, prefix, input);
+
+    const out = fbs.getWritten();
+
+    try std.testing.expectEqualStrings(expected, out);
 }
 
 /// Polls until a delimeter is found, the last poll returned nothing or the stream has ended.
