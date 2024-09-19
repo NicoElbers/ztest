@@ -245,9 +245,12 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
             },
 
             .parameterizedStart => {
-                assert(state == .running_test);
-
-                const idx = state.running_test;
+                const idx: usize = switch (state) {
+                    .running_test,
+                    .running_parameterized_test,
+                    => |idx| idx,
+                    else => unreachable,
+                };
 
                 const args_fmt = msg.bytes;
 
@@ -256,23 +259,20 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 state = .{ .running_parameterized_test = idx };
             },
 
-            .parameterizedSuccess => {
+            .parameterizedComplete => {
                 assert(state == .running_parameterized_test);
 
                 const idx = state.running_parameterized_test;
 
-                res_printer.updateLastPtestStatus(idx, .passed);
-
                 state = .{ .running_test = idx };
             },
+
             .parameterizedSkipped => {
                 assert(state == .running_parameterized_test);
 
                 const idx = state.running_parameterized_test;
 
                 res_printer.updateLastPtestStatus(idx, .skipped);
-
-                state = .{ .running_test = idx };
             },
 
             .parameterizedError => {
@@ -283,7 +283,6 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 res_printer.updateLastPtestStatus(idx, .{ .failed = error.TODO });
 
                 failures += 1;
-                state = .{ .running_test = idx };
             },
 
             .runTest,
@@ -343,7 +342,7 @@ fn clientFn(alloc: Allocator) !void {
             .parameterizedStart,
             .parameterizedError,
             .parameterizedSkipped,
-            .parameterizedSuccess,
+            .parameterizedComplete,
             .testStart,
             .testSuccess,
             .testSkipped,

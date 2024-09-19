@@ -27,11 +27,7 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
 
         const res = util.callAnyFunction(func, param_tuple);
 
-        if (res) {
-            if (util.isUsingZtestRunner) {
-                try client.serveParameterizedSuccess();
-            }
-        } else |err| switch (@as(anyerror, @errorCast(err))) {
+        _ = res catch |err| switch (@as(anyerror, @errorCast(err))) {
             error.ZigSkipTest => {
                 if (util.isUsingZtestRunner) {
                     try client.serveParameterizedSkipped();
@@ -40,29 +36,28 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
             else => {
                 any_failed = true;
 
-                if (@errorReturnTrace()) |st| {
-                    std.debug.print("Stack trace:\n", .{});
-                    std.debug.dumpStackTrace(st.*);
-                    std.debug.print("\n", .{});
-
-                    reset();
-                }
-
                 if (util.isUsingZtestRunner) {
                     try client.serveParameterizedError(@errorName(err));
                 }
             },
+        };
+    }
+
+    if (any_failed) {
+        if (@errorReturnTrace()) |st| {
+            std.debug.print("Stack trace:\n", .{});
+            std.debug.dumpStackTrace(st.*);
+            std.debug.print("\n", .{});
         }
+    }
+
+    if (util.isUsingZtestRunner) {
+        try client.serveParameterizedComplete();
     }
 
     if (any_failed) {
         return error.ParameterizedTestFailure;
     }
-}
-
-noinline fn reset() void {
-    var garbage: u8 = 0;
-    std.mem.doNotOptimizeAway(&garbage);
 }
 
 /// Assumes param_tuple is a valid param tuple
