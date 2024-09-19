@@ -40,24 +40,16 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
             else => {
                 any_failed = true;
 
+                if (@errorReturnTrace()) |st| {
+                    std.debug.print("Stack trace:\n", .{});
+                    std.debug.dumpStackTrace(st.*);
+                    std.debug.print("\n", .{});
+
+                    reset();
+                }
+
                 if (util.isUsingZtestRunner) {
-                    var buf: [1024]u8 = undefined;
-
-                    const stack_trace = @errorReturnTrace();
-
-                    if (@errorReturnTrace()) |st| {
-                        std.debug.dumpStackTrace(st.*);
-                    }
-
-                    // TODO: Currently the stacktrace is kinda fucked, think of a better way to
-                    // get individual traces per parameterized test
-                    const st_str = if (stack_trace) |st| blk: {
-                        break :blk try std.fmt.bufPrint(&buf, "{any}", .{st});
-                    } else blk: {
-                        break :blk try std.fmt.bufPrint(&buf, "No stacktrace", .{});
-                    };
-
-                    try client.serveParameterizedError(@errorName(err), st_str);
+                    try client.serveParameterizedError(@errorName(err));
                 }
             },
         }
@@ -66,6 +58,11 @@ pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     if (any_failed) {
         return error.ParameterizedTestFailure;
     }
+}
+
+noinline fn reset() void {
+    var garbage: u8 = 0;
+    std.mem.doNotOptimizeAway(&garbage);
 }
 
 /// Assumes param_tuple is a valid param tuple
