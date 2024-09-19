@@ -93,6 +93,8 @@ pub fn clearBelow(self: Self) WriterError!void {
 pub fn getTerminalWidth(self: Self) !?u16 {
     const file = self.file;
 
+    if (!file.isTty()) return null;
+
     // Untested windows implementation
     // https://stackoverflow.com/a/23370070
     if (@import("builtin").os.tag == .windows) {
