@@ -214,6 +214,15 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
                 const Failure = Message.TestFailure;
                 const size = @sizeOf(Failure);
 
+                if (state == .running_parameterized_test) {
+                    res_printer.updateLastPtestStatus(
+                        state.running_parameterized_test,
+                        .{ .failed = error.ParameterizedPanic },
+                    );
+
+                    state = .{ .running_test = state.running_parameterized_test };
+                }
+
                 assert(state == .running_test);
 
                 assert(msg.bytes.len >= size);
