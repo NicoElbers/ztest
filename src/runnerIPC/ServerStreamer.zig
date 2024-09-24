@@ -182,10 +182,13 @@ fn writeLines(writer: anytype, max_width: u16, prefix: []const u8, slice: []cons
         const sub_slice = slice[written_idx..];
         if (sub_slice.len == 0) return;
 
+        // Trim because we might have multiple newlines in a row :(
+        const trimmed_sub_slice = std.mem.trim(u8, sub_slice, "\n");
+
         try std.fmt.format(
             writer,
             "{s}{s}",
-            .{ prefix, sub_slice },
+            .{ prefix, trimmed_sub_slice },
         );
     }
 }
