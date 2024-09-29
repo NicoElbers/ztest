@@ -1,4 +1,4 @@
-process_streamer: ServerStreamer,
+process_streamer: Poller,
 out: File,
 
 /// Child must have stdout and stderr behavior of Pipe, this ensures that the
@@ -132,7 +132,7 @@ const Server = @This();
 const File = std.fs.File;
 const Allocator = std.mem.Allocator;
 const Child = std.process.Child;
-const ServerStreamer = @import("ServerStreamer.zig");
+const Poller = IPC.Poller(.server);
 const Message = IPC.Message;
 const MessageStatus = nodeUtils.MessageStatus;
 
