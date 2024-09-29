@@ -11,7 +11,7 @@ const assert = std.debug.assert;
 pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     verifyArguments(@TypeOf(func), @TypeOf(param_list));
 
-    var client = IPC.Client.initSender();
+    var client = IPC.Client.init(ztest.allocator);
 
     var any_failed = false;
     inline for (param_list) |param_tuple| {
