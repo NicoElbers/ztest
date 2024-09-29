@@ -47,6 +47,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         /// stdout and stderr are valid once the child is spawned. The child must also
         /// already be spawned
         fn initServer(alloc: Allocator, child: Child) @This() {
+            comptime assert(node_type == .server);
+
             assert(child.stdin != null);
             assert(child.stdout != null);
             assert(child.stderr != null);
@@ -62,6 +64,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         fn initClient(alloc: Allocator) @This() {
+            comptime assert(node_type == .client);
+
             return .{
                 .process_streamer = .init(alloc, std.io.getStdIn()),
                 .out = std.io.getStdOut(),
@@ -74,6 +78,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         };
 
         fn initServerManual(alloc: Allocator, send: File, recv: File, err: File) @This() {
+            comptime assert(node_type == .server);
+
             return .{
                 .process_streamer = .init(alloc, recv, err),
                 .out = send,
@@ -81,6 +87,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         fn initClientManual(alloc: Allocator, send: File, recv: File) @This() {
+            comptime assert(node_type == .client);
+
             return .{
                 .process_streamer = .init(alloc, recv),
                 .out = send,
@@ -121,6 +129,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveExit(server: *@This()) !void {
+            comptime assert(node_type == .server);
+
             const header: Message.Header = .{
                 .tag = .exit,
                 .bytes_len = 0,
@@ -130,6 +140,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveRunTest(server: *@This(), idx: usize) !void {
+            comptime assert(node_type == .server);
+
             const header: Message.Header = .{
                 .tag = .runTest,
                 .bytes_len = @sizeOf(usize),
@@ -155,6 +167,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveTestStart(client: *@This(), idx: usize) !void {
+            comptime assert(node_type == .client);
+
             const header = Message.Header{
                 .tag = .testStart,
                 .bytes_len = @sizeOf(usize),
@@ -166,6 +180,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveTestSuccess(client: *@This(), idx: usize) !void {
+            comptime assert(node_type == .client);
+
             const header = Message.Header{
                 .tag = .testSuccess,
                 .bytes_len = @sizeOf(usize),
@@ -177,6 +193,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveTestFailure(client: *@This(), idx: usize) !void {
+            comptime assert(node_type == .client);
+
             const header = Message.Header{
                 .tag = .testFailure,
                 .bytes_len = @sizeOf(usize),
@@ -188,6 +206,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveTestSkipped(client: *@This(), idx: usize) !void {
+            comptime assert(node_type == .client);
+
             const header = Message.Header{
                 .tag = .testSkipped,
                 .bytes_len = @sizeOf(usize),
@@ -199,6 +219,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveParameterizedStart(client: *@This(), args_str: []const u8) !void {
+            comptime assert(node_type == .client);
+
             const header = Message.Header{
                 .tag = .parameterizedStart,
                 .bytes_len = @intCast(args_str.len),
@@ -210,6 +232,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveParameterizedComplete(client: *@This()) !void {
+            comptime assert(node_type == .client);
+
             const header = Message.Header{
                 .tag = .parameterizedComplete,
                 .bytes_len = 0,
@@ -219,6 +243,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveParameterizedSkipped(client: *@This()) !void {
+            comptime assert(node_type == .client);
+
             const header = Message.Header{
                 .tag = .parameterizedSkipped,
                 .bytes_len = 0,
@@ -228,6 +254,8 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn serveParameterizedError(client: *@This(), error_name: []const u8) !void {
+            comptime assert(node_type == .client);
+
             const len: usize = @sizeOf(Message.ParameterizedError) + error_name.len;
 
             const header = Message.Header{
