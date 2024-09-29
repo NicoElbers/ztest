@@ -252,7 +252,7 @@ pub fn Poller(comptime poller_type: enum { client, server }) type {
 
         /// Polls until a delimeter is found, the last poll returned nothing or the stream has ended.
         /// If a delimeter is found, returns the index after the delimeter
-        pub inline fn readUntilDelimeter(self: *@This(), comptime delimeter: []const u8) Error!DelimeterStatus {
+        pub fn readUntilDelimeter(self: *@This(), comptime delimeter: []const u8) Error!DelimeterStatus {
             comptime assert(delimeter.len > 0);
 
             const array_list = switch (poller_type) {
