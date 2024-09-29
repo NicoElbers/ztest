@@ -14,8 +14,8 @@ pub fn serveMessage(
     const header_le = bswap(header);
 
     iovecs[0] = .{
-        .base = &IPC.special_message_start_key,
-        .len = IPC.special_message_start_key.len,
+        .base = &Message.ipc_start,
+        .len = Message.ipc_start.len,
     };
     iovecs[1] = .{
         .base = @as([*]const u8, @ptrCast(&header_le)),
@@ -44,14 +44,14 @@ pub fn receiveMessage(
     const Header = Message.Header;
     const input_list: *std.ArrayList(u8) = input_list_ptr;
 
-    const pos = switch (try streamer_ptr.readUntilDelimeter(&IPC.special_message_start_key)) {
+    const pos = switch (try streamer_ptr.readUntilDelimeter(&Message.ipc_start)) {
         .delimeterFound => |pos| pos,
         .streamClosed => return .streamClosed,
         .timedOut => return .timedOut,
     };
-    assert(pos >= IPC.special_message_start_key.len);
+    assert(pos >= Message.ipc_start.len);
 
-    const ipc_msg_start = pos - IPC.special_message_start_key.len;
+    const ipc_msg_start = pos - Message.ipc_start.len;
 
     var is_last_round = false;
     const header: Header = blk: while (true) {
