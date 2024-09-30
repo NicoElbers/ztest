@@ -1,4 +1,4 @@
-pub fn Poller(comptime poller_type: enum { client, server }) type {
+pub fn Poller(comptime poller_type: NodeType) type {
     const PollerEnum = switch (poller_type) {
         .server => enum { stdout, stderr },
         .client => enum { stdin },
@@ -307,7 +307,9 @@ const Child = std.process.Child;
 const Allocator = std.mem.Allocator;
 const File = std.fs.File;
 const ArrayList = std.ArrayList;
+const NodeType = IPC.NodeType;
 
 const assert = std.debug.assert;
 const std = @import("std");
+const IPC = @import("root.zig");
 const time = std.time;

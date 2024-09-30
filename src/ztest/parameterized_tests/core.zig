@@ -1,17 +1,7 @@
-const std = @import("std");
-const ztest = @import("../ztest.zig");
-const IPC = @import("IPC");
-const util = ztest.util;
-const runner = util.RunnerInfo;
-
-const Client = IPC.Client;
-
-const assert = std.debug.assert;
-
 pub fn parameterizedTest(comptime func: anytype, param_list: anytype) !void {
     verifyArguments(@TypeOf(func), @TypeOf(param_list));
 
-    var client = IPC.Client.init(ztest.allocator);
+    var client: Node(.client) = .init(ztest.allocator);
 
     var any_failed = false;
     inline for (param_list) |param_tuple| {
@@ -245,3 +235,12 @@ test "comptime" {
         .{u32},
     });
 }
+
+const std = @import("std");
+const ztest = @import("../ztest.zig");
+const IPC = @import("IPC");
+const util = ztest.util;
+
+const assert = std.debug.assert;
+
+const Node = IPC.Node;

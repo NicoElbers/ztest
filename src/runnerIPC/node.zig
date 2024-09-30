@@ -1,11 +1,5 @@
-// TODO: Factor node_type and poller_type out into a type comming from probably
-// root, so that I don't have to switch to go between them
-
-pub fn Node(comptime node_type: enum { client, server }) type {
-    const Poller = IPC.Poller(switch (node_type) {
-        .server => .server,
-        .client => .client,
-    });
+pub fn Node(comptime node_type: NodeType) type {
+    const Poller = IPC.Poller(node_type);
 
     return struct {
         process_streamer: Poller,
@@ -128,7 +122,7 @@ pub fn Node(comptime node_type: enum { client, server }) type {
             try self.out.writevAll(iovecs[0 .. bufs.len + 2]);
         }
 
-        pub fn serveExit(server: *@This()) !void {
+        pub fn serveExit(self: *@This()) !void {
             comptime assert(node_type == .server);
 
             const header: Message.Header = .{
@@ -136,10 +130,10 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = 0,
             };
 
-            try server.serveMessage(header, &.{});
+            try self.serveMessage(header, &.{});
         }
 
-        pub fn serveRunTest(server: *@This(), idx: usize) !void {
+        pub fn serveRunTest(self: *@This(), idx: usize) !void {
             comptime assert(node_type == .server);
 
             const header: Message.Header = .{
@@ -147,13 +141,13 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = @sizeOf(usize),
             };
 
-            try server.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 std.mem.asBytes(&idx),
             });
         }
 
         pub fn serveStringMessage(
-            client: *@This(),
+            self: *@This(),
             tag: Message.Tag,
             string: []const u8,
         ) !void {
@@ -161,12 +155,12 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .tag = tag,
                 .bytes_len = @intCast(string.len),
             };
-            try client.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 string,
             });
         }
 
-        pub fn serveTestStart(client: *@This(), idx: usize) !void {
+        pub fn serveTestStart(self: *@This(), idx: usize) !void {
             comptime assert(node_type == .client);
 
             const header = Message.Header{
@@ -174,12 +168,12 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = @sizeOf(usize),
             };
 
-            try client.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 std.mem.asBytes(&idx),
             });
         }
 
-        pub fn serveTestSuccess(client: *@This(), idx: usize) !void {
+        pub fn serveTestSuccess(self: *@This(), idx: usize) !void {
             comptime assert(node_type == .client);
 
             const header = Message.Header{
@@ -187,12 +181,12 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = @sizeOf(usize),
             };
 
-            try client.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 std.mem.asBytes(&idx),
             });
         }
 
-        pub fn serveTestFailure(client: *@This(), idx: usize) !void {
+        pub fn serveTestFailure(self: *@This(), idx: usize) !void {
             comptime assert(node_type == .client);
 
             const header = Message.Header{
@@ -200,12 +194,12 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = @sizeOf(usize),
             };
 
-            try client.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 std.mem.asBytes(&idx),
             });
         }
 
-        pub fn serveTestSkipped(client: *@This(), idx: usize) !void {
+        pub fn serveTestSkipped(self: *@This(), idx: usize) !void {
             comptime assert(node_type == .client);
 
             const header = Message.Header{
@@ -213,12 +207,12 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = @sizeOf(usize),
             };
 
-            try client.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 std.mem.asBytes(&idx),
             });
         }
 
-        pub fn serveParameterizedStart(client: *@This(), args_str: []const u8) !void {
+        pub fn serveParameterizedStart(self: *@This(), args_str: []const u8) !void {
             comptime assert(node_type == .client);
 
             const header = Message.Header{
@@ -226,12 +220,12 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = @intCast(args_str.len),
             };
 
-            try client.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 args_str,
             });
         }
 
-        pub fn serveParameterizedComplete(client: *@This()) !void {
+        pub fn serveParameterizedComplete(self: *@This()) !void {
             comptime assert(node_type == .client);
 
             const header = Message.Header{
@@ -239,10 +233,10 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = 0,
             };
 
-            try client.serveMessage(header, &.{});
+            try self.serveMessage(header, &.{});
         }
 
-        pub fn serveParameterizedSkipped(client: *@This()) !void {
+        pub fn serveParameterizedSkipped(self: *@This()) !void {
             comptime assert(node_type == .client);
 
             const header = Message.Header{
@@ -250,10 +244,10 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .bytes_len = 0,
             };
 
-            try client.serveMessage(header, &.{});
+            try self.serveMessage(header, &.{});
         }
 
-        pub fn serveParameterizedError(client: *@This(), error_name: []const u8) !void {
+        pub fn serveParameterizedError(self: *@This(), error_name: []const u8) !void {
             comptime assert(node_type == .client);
 
             const len: usize = @sizeOf(Message.ParameterizedError) + error_name.len;
@@ -267,7 +261,7 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                 .error_name_len = @intCast(error_name.len),
             };
 
-            try client.serveMessage(header, &.{
+            try self.serveMessage(header, &.{
                 &std.mem.toBytes(message_info),
                 error_name,
             });
@@ -381,9 +375,10 @@ const assert = std.debug.assert;
 
 const File = std.fs.File;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 const Child = std.process.Child;
 const Message = IPC.Message;
-const ArrayList = std.ArrayList;
+const NodeType = IPC.NodeType;
 
 const std = @import("std");
 const IPC = @import("root.zig");

@@ -1,10 +1,8 @@
-pub const Server = @import("node.zig").Node(.server);
-pub const Client = @import("node.zig").Node(.client);
-
 pub const Poller = @import("poller.zig").Poller;
 pub const Node = @import("node.zig").Node;
-
 pub const Message = @import("Message.zig");
+
+pub const NodeType = enum { client, server };
 
 test {
     _ = Node(.server);

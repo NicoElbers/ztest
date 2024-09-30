@@ -3,10 +3,7 @@ const gpa = ztest.allocator;
 const expect = ztest.expect;
 
 const File = std.fs.File;
-const Server = IPC.Server;
-const ServerStreamer = IPC.ServerStreamer;
-const Client = IPC.Client;
-const ClientStreamer = IPC.ClientStreamer;
+const Node = IPC.Node;
 const Message = IPC.Message;
 
 test "server timeout" {
@@ -250,8 +247,8 @@ pub const Pipe = struct {
     }
 };
 
-pub fn makeDummyServer(child_stdin: File, child_stdout: File, child_stderr: File) Server {
-    return Server{
+pub fn makeDummyServer(child_stdin: File, child_stdout: File, child_stderr: File) Node(.server) {
+    return .{
         .process_streamer = .init(
             gpa,
             child_stdout,
@@ -261,8 +258,8 @@ pub fn makeDummyServer(child_stdin: File, child_stdout: File, child_stderr: File
     };
 }
 
-pub fn makeDummyClient(child_stdin: File, child_stdout: File) Client {
-    return Client{
+pub fn makeDummyClient(child_stdin: File, child_stdout: File) Node(.client) {
+    return .{
         .process_streamer = .init(
             gpa,
             child_stdin,
@@ -313,8 +310,8 @@ pub const IPCSetup = struct {
     stdout: Pipe,
     stderr: Pipe,
 
-    server: Server,
-    client: Client,
+    server: Node(.server),
+    client: Node(.client),
 
     pub fn setup() IPCSetup {
         const stdin = Pipe.createPipe() catch @panic("setup panic");
