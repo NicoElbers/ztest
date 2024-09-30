@@ -78,7 +78,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
     try child.spawn();
     errdefer _ = child.kill() catch std.log.err("Couldn't kill child with pgid {?d}", .{child.pgid});
 
-    var server = IPC.Server.init(alloc, child);
+    var server = Node(.server).init(alloc, child);
     defer server.deinit();
 
     var test_idx: usize = 0;
@@ -93,7 +93,7 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
             state = .requested_test;
         }
 
-        const msg: IPC.Message = switch (try server.receiveMessage(alloc)) {
+        const msg: Message = switch (try server.receiveMessage(alloc)) {
             .streamClosed => unreachable, // Client died unexpectedly
             .timedOut => continue,
             .message => |msg| msg,
@@ -239,11 +239,11 @@ fn serverFn(argv0: [:0]const u8, alloc: Allocator) !void {
 }
 
 fn clientFn(alloc: Allocator) !void {
-    var client = IPC.Client.init(alloc);
+    var client = Node(.client).init(alloc);
     defer client.deinit();
 
     loop: while (true) {
-        const msg: IPC.Message = switch (try client.receiveMessage(alloc)) {
+        const msg: Message = switch (try client.receiveMessage(alloc)) {
             .streamClosed => unreachable, // Client should never die before the server
             .timedOut => continue,
             .message => |msg| msg,
@@ -313,6 +313,7 @@ const windows = std.os.windows;
 const ResultPrinter = @import("ResultPrinter.zig");
 const File = std.fs.File;
 const Allocator = std.mem.Allocator;
+const Node = IPC.Node;
 const Message = IPC.Message;
 
 const BuiltinTestFn = std.builtin.TestFn;
