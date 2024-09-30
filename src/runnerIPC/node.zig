@@ -274,21 +274,23 @@ pub fn Node(comptime node_type: enum { client, server }) type {
         }
 
         pub fn receiveMessage(self: *@This(), alloc: Allocator) ReceiveError!MessageStatus {
-            const array_list = switch (node_type) {
+            const Header = Message.Header;
+
+            const array_list: *ArrayList(u8) = switch (node_type) {
                 .server => &self.process_streamer.stdout_content,
                 .client => &self.process_streamer.stdin_content,
             };
 
-            const Header = Message.Header;
-
-            const pos = switch (try self.process_streamer.readUntilDelimeter(&Message.ipc_start)) {
-                .delimeterFound => |pos| pos,
-                .streamClosed => return .streamClosed,
-                .timedOut => return .timedOut,
+            const ipc_msg_start: usize = blk: while (true) {
+                if (std.mem.indexOf(u8, array_list.items, &Message.ipc_start)) |pos| {
+                    break :blk pos;
+                } else switch (try self.process_streamer.read()) {
+                    .readLen => continue,
+                    .timedOut => return .timedOut,
+                    .streamClosed => return .streamClosed,
+                }
             };
-            assert(pos >= Message.ipc_start.len);
-
-            const ipc_msg_start = pos - Message.ipc_start.len;
+            const pos = ipc_msg_start + Message.ipc_start.len;
 
             var is_last_round = false;
             const header: Header = blk: while (true) {
@@ -339,7 +341,6 @@ pub fn Node(comptime node_type: enum { client, server }) type {
                     array_list.items[ipc_msg_start..],
                     after_slice[header.bytes_len..],
                 );
-                self.process_streamer.delim_checked_ptr = ipc_msg_start -| 1;
 
                 array_list.shrinkRetainingCapacity(ipc_msg_start + after_slice.len - header.bytes_len);
 
@@ -382,6 +383,7 @@ const File = std.fs.File;
 const Allocator = std.mem.Allocator;
 const Child = std.process.Child;
 const Message = IPC.Message;
+const ArrayList = std.ArrayList;
 
 const std = @import("std");
 const IPC = @import("root.zig");

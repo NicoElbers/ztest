@@ -10,10 +10,9 @@ pub fn Poller(comptime poller_type: enum { client, server }) type {
     const timeout_ns = 0;
 
     return struct {
-        stdout_content: if (poller_type == .server) std.ArrayList(u8) else void,
-        stderr_content: if (poller_type == .server) std.ArrayList(u8) else void,
-        stdin_content: if (poller_type == .client) std.ArrayList(u8) else void,
-        delim_checked_ptr: usize,
+        stdout_content: if (poller_type == .server) ArrayList(u8) else void,
+        stderr_content: if (poller_type == .server) ArrayList(u8) else void,
+        stdin_content: if (poller_type == .client) ArrayList(u8) else void,
         poller: std.io.Poller(PollerEnum),
 
         pub const Error = error{
@@ -49,7 +48,6 @@ pub fn Poller(comptime poller_type: enum { client, server }) type {
                 .stdout_content = .init(alloc),
                 .stderr_content = .init(alloc),
                 .stdin_content = undefined,
-                .delim_checked_ptr = 0,
                 .poller = poller,
             };
         }
@@ -65,7 +63,6 @@ pub fn Poller(comptime poller_type: enum { client, server }) type {
                 .stdin_content = .init(alloc),
                 .stdout_content = undefined,
                 .stderr_content = undefined,
-                .delim_checked_ptr = 0,
                 .poller = poller,
             };
         }
@@ -96,7 +93,7 @@ pub fn Poller(comptime poller_type: enum { client, server }) type {
 
                     const slice = fifo.readableSlice(0);
 
-                    var array_list = switch (poller_type) {
+                    var array_list: *ArrayList(u8) = switch (poller_type) {
                         .server => switch (file) {
                             .stdout => &self.stdout_content,
                             .stderr => &self.stderr_content,
@@ -116,35 +113,85 @@ pub fn Poller(comptime poller_type: enum { client, server }) type {
             return .{ .readLen = total_len_read };
         }
 
+        pub fn getLogs(self: *@This(), max_width: u16, alloc: Allocator) ![]const u8 {
+            var logs = ArrayList(u8).init(alloc);
+            const writer = logs.writer().any();
+
+            const stdout_prefix = "stdout | ";
+            const stderr_prefix = "stderr | ";
+            const stdin_prefix = "stdin | ";
+
+            switch (poller_type) {
+                .server => {
+                    try writeLines(
+                        writer,
+                        @max(max_width, stdout_prefix.len + 1),
+                        stdout_prefix,
+                        self.stdout_content.items,
+                    );
+
+                    try writeLines(
+                        writer,
+                        @max(max_width, stderr_prefix.len + 1),
+                        stderr_prefix,
+                        self.stderr_content.items,
+                    );
+                },
+                .client => try writeLines(
+                    writer,
+                    @max(max_width, stdin_prefix.len + 1),
+                    stdin_prefix,
+                    self.stdin_content.items,
+                ),
+            }
+
+            return try logs.toOwnedSlice();
+        }
+
         /// Gets logs aggregated thus far, and clears stdout and stderr content. Will end
         /// with a newline unless if stdout/stderr content is empty.
         ///
         /// This may ONLY be done when the client is not actively sending messages,
         /// otherwise those might get discarded.
         pub fn getRemoveLogs(self: *@This(), max_width: u16, alloc: Allocator) ![]const u8 {
-            var logs = std.ArrayList(u8).init(alloc);
+            var logs = ArrayList(u8).init(alloc);
             const writer = logs.writer().any();
 
             const stdout_prefix = "stdout | ";
             const stderr_prefix = "stderr | ";
+            const stdin_prefix = "stdin | ";
 
-            try writeLines(
-                writer,
-                @max(max_width, stdout_prefix.len + 1),
-                stdout_prefix,
-                self.stdout_content.items,
-            );
+            switch (poller_type) {
+                .server => {
+                    try writeLines(
+                        writer,
+                        @max(max_width, stdout_prefix.len + 1),
+                        stdout_prefix,
+                        self.stdout_content.items,
+                    );
 
-            try writeLines(
-                writer,
-                @max(max_width, stderr_prefix.len + 1),
-                stderr_prefix,
-                self.stderr_content.items,
-            );
+                    try writeLines(
+                        writer,
+                        @max(max_width, stderr_prefix.len + 1),
+                        stderr_prefix,
+                        self.stderr_content.items,
+                    );
+                },
+                .client => try writeLines(
+                    writer,
+                    @max(max_width, stdin_prefix.len + 1),
+                    stdin_prefix,
+                    self.stdin_content.items,
+                ),
+            }
 
-            self.delim_checked_ptr = 0;
-            self.stdout_content.clearRetainingCapacity();
-            self.stderr_content.clearRetainingCapacity();
+            switch (poller_type) {
+                .server => {
+                    self.stdout_content.clearRetainingCapacity();
+                    self.stderr_content.clearRetainingCapacity();
+                },
+                .client => self.stdin_content.clearRetainingCapacity(),
+            }
 
             return try logs.toOwnedSlice();
         }
@@ -249,37 +296,6 @@ pub fn Poller(comptime poller_type: enum { client, server }) type {
 
             try std.testing.expectEqualStrings(expected, out);
         }
-
-        /// Polls until a delimeter is found, the last poll returned nothing or the stream has ended.
-        /// If a delimeter is found, returns the index after the delimeter
-        pub fn readUntilDelimeter(self: *@This(), comptime delimeter: []const u8) Error!DelimeterStatus {
-            comptime assert(delimeter.len > 0);
-
-            const array_list = switch (poller_type) {
-                .server => &self.stdout_content,
-                .client => &self.stdin_content,
-            };
-
-            while (true) {
-                if (self.delim_checked_ptr >= array_list.items.len -| delimeter.len) {
-                    switch (try self.read()) {
-                        .readLen => continue,
-                        .timedOut => return .timedOut,
-                        .streamClosed => return .streamClosed,
-                    }
-                }
-
-                const unseen_slice = array_list.items[self.delim_checked_ptr..];
-
-                if (std.mem.indexOf(u8, unseen_slice, delimeter)) |pos| {
-                    self.delim_checked_ptr += pos + delimeter.len;
-                    return .{ .delimeterFound = self.delim_checked_ptr };
-                } else {
-                    self.delim_checked_ptr += unseen_slice.len - delimeter.len + 1;
-                }
-            }
-            unreachable;
-        }
     };
 }
 
@@ -290,6 +306,7 @@ pub fn Errors(comptime Fn: anytype) type {
 const Child = std.process.Child;
 const Allocator = std.mem.Allocator;
 const File = std.fs.File;
+const ArrayList = std.ArrayList;
 
 const assert = std.debug.assert;
 const std = @import("std");
