@@ -4,8 +4,6 @@ bytes: []const u8,
 pub const ipc_start: [15]u8 = [_]u8{ 215, 217 } ++ "ZTESTIPCMSG".* ++ [_]u8{ 220, 235 };
 
 pub const Header = packed struct(u64) {
-    // TODO: Think of putting a crc in here to verify that we didn't just
-    // randomly find a IPC messsage key
     tag: Tag,
     bytes_len: u32,
 };
